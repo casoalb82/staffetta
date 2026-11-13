@@ -1,0 +1,30 @@
+# Ita Link configuration. Copy to config.toml (which git ignores).
+
+service_nick = "ItaLink"
+service_realname = "Ita Link channel relay service (relay bot, not a person)"
+state_dir = "state"
+
+# Owners must be logged in to services to manage a link.
+require_account_for_owner = false
+# Relay users that are flagged as bots (off = never).
+relay_bots = false
+# How the origin network is added to a puppet's nick: pipe | bracket | underscore
+nick_style = "pipe"
+
+[[network]]
+id = "examplea"
+label = "Example A"
+host = "irc.example-a.org"
+port = 6697
+tls = true                 # plain text is refused except to localhost
+transport = "puppets"      # or "service-bot" (one labelled relay bot, no extra connections)
+max_puppets = 60
+max_nick = 30
+
+[[network]]
+id = "exampleb"
+label = "Example B"
+host = "irc.example-b.org"
+port = 6697
+tls = true
+transport = "service-bot"
