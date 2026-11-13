@@ -31,6 +31,10 @@ pub enum Msg<'a> {
     OnePerNet {
         net: &'a str,
     },
+    TooNew {
+        chan: &'a str,
+        secs: u64,
+    },
     AskNotice {
         mine_chan: &'a str,
         mine_net: &'a str,
@@ -195,6 +199,13 @@ impl Msg<'_> {
                     format!("Quel link ha già un canale su {net}. Un solo canale per rete.")
                 } else {
                     format!("That link already has a channel on {net}. One channel per network.")
+                }
+            }
+            TooNew { chan, secs } => {
+                if it {
+                    format!("{chan} e' collegato ad altre reti: i tuoi messaggi saranno visibili anche li' tra circa {secs} secondi (attesa per i nuovi arrivati). Questo avviso e' unico.")
+                } else {
+                    format!("{chan} is linked to other networks: your messages will also show there in about {secs} seconds (newcomer wait). You will only see this once.")
                 }
             }
             AskNotice {

@@ -22,7 +22,7 @@ use crate::model::*;
 use crate::msg::Msg;
 use crate::policy::*;
 use serde::{Deserialize, Serialize};
-use std::collections::{BTreeMap, BTreeSet, HashMap, VecDeque};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet, VecDeque};
 
 const REQUEST_TTL_MS: u64 = 7 * 24 * 3600 * 1000;
 const KICK_COOLDOWN_MS: u64 = 10 * 60 * 1000;
@@ -367,6 +367,8 @@ pub struct Engine {
     puppet_nicks: HashMap<(NetId, String), Uid>,
     buckets: HashMap<(Uid, ChanKey), Bucket>,
     cooldown: HashMap<(Uid, ChanKey), u64>,
+    /// Who already got the "you are too new" notice (once per run, per channel).
+    told_new: HashSet<(Uid, ChanKey)>,
     samples: HashMap<ChanKey, VecDeque<String>>,
     stats: HashMap<ChanKey, Stats>,
     audit: VecDeque<AuditRecord>,
@@ -386,6 +388,7 @@ impl Engine {
             puppet_nicks: HashMap::new(),
             buckets: HashMap::new(),
             cooldown: HashMap::new(),
+            told_new: HashSet::new(),
             samples: HashMap::new(),
             stats: HashMap::new(),
             audit: VecDeque::new(),
@@ -1307,6 +1310,25 @@ impl Engine {
         if let Some(w) = why_not {
             if w != "not sharing" && w != "command" && w != "empty" {
                 self.stats.entry(chan.clone()).or_default().dropped_filter += 1;
+            }
+            // Tell a newcomer once why nothing crossed, instead of dropping silently.
+            if w == "too new"
+                && kind == SayKind::Message
+                && self.told_new.insert((cu.uid, chan.clone()))
+            {
+                let wait = (sp.min_presence_secs * 1000)
+                    .saturating_sub(now.saturating_sub(cu.since))
+                    .div_ceil(1000);
+                let l = self.lang_of(&chan);
+                out.push(Action::Reply {
+                    net: chan.net.clone(),
+                    nick: nick.to_string(),
+                    text: Msg::TooNew {
+                        chan: &chan.chan,
+                        secs: wait,
+                    }
+                    .render(l),
+                });
             }
             return;
         }

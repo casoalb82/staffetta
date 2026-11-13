@@ -335,7 +335,16 @@ fn newcomers_cannot_speak_across_immediately() {
         role: Role::Normal,
     });
     w.advance(10);
-    assert!(says(&w.say(&a, "troll", "flame")).is_empty(), "too new");
+    let acts = w.say(&a, "troll", "flame");
+    assert!(says(&acts).is_empty(), "too new");
+    // The newcomer is told once, privately, why nothing crossed.
+    let told = replies(&acts);
+    assert_eq!(told.len(), 1, "{told:?}");
+    assert!(told[0].contains("110"), "{}", told[0]);
+    assert!(
+        replies(&w.say(&a, "troll", "again")).is_empty(),
+        "only once"
+    );
     w.advance(120);
     assert_eq!(says(&w.say(&a, "troll", "ora si")).len(), 1);
 }
