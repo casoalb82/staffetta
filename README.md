@@ -8,8 +8,10 @@ different networks share one conversation, **without any channel giving up
 control**.
 
 > Status: **working prototype** (pre-release). The core and the network layer are
-> tested end to end against a built-in fake IRC network. It has **not** been run
-> on a real network yet. See [Status and roadmap](#status-and-roadmap).
+> tested end to end against a built-in fake IRC network, and it has been tried on
+> **two real IRC networks** in a private test channel (relay both ways, kick, ban,
+> unlink, restart recovery). It has not yet been used by public channels. See
+> [Status and roadmap](#status-and-roadmap).
 
 ## What it looks like
 
@@ -86,9 +88,14 @@ identity is anchored to their account), an IPv6 source-address pool for puppets
 (against per-IP connection limits), an opt-in read-only status page, a hardened
 systemd unit, CI. See [docs/INSTALL.md](docs/INSTALL.md).
 
-Not done yet: a trial on a real network. That needs
-the agreement of the channel owners *and* the network's staff, and that is
-deliberately the last step.
+Tried on real networks so far: one private test channel on two networks. What
+the trial taught us is already in the code: puppet idents are kept to 9
+characters so servers do not cut them, and banning the shared *host* removes every
+relayed person at once, so owners block by ident or with `BLOCK` (see
+[docs/OWNERS.md](docs/OWNERS.md)).
+
+Not done yet: use by real, public channels. That needs only the agreement of the
+channel owners involved; no network staff or server change is required, by design.
 
 ## License
 
