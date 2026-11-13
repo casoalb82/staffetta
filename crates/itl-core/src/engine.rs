@@ -153,6 +153,8 @@ pub enum Event {
     Quit { net: NetId, nick: String },
     NickChange { net: NetId, old: String, new: String },
     RoleChange { chan: ChanKey, nick: String, role: Role },
+    /// A person logged in to / out of services (account-notify).
+    AccountChange { net: NetId, nick: String, account: Option<String> },
     Say { chan: ChanKey, nick: String, text: String, kind: SayKind },
     /// A private message to the service nick.
     Command { net: NetId, nick: String, text: String },
@@ -351,6 +353,14 @@ impl Engine {
             Event::RoleChange { chan, nick, role } => {
                 if let Some(cu) = self.chans.get_mut(&chan).and_then(|c| c.users.get_mut(&fold(&nick))) {
                     cu.role = role;
+                }
+            }
+            Event::AccountChange { net, nick, account } => {
+                if let Some(uid) = self.users.get(&(net, fold(&nick))).copied() {
+                    if let Some(r) = self.urec.get_mut(&uid) {
+                        r.seen.account = account;
+                    }
+                    self.reconcile_user(now, uid, &mut out);
                 }
             }
             Event::Say { chan, nick, text, kind } => self.on_say(now, chan, &nick, &text, kind, &mut out),

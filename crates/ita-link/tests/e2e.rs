@@ -201,3 +201,56 @@ async fn survives_a_network_drop_and_a_restart() {
     let _ = tokio::time::timeout(Duration::from_secs(5), svc2).await;
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn accounts_anchor_identity_and_gate_entry() {
+    use itl_core::model::{NetId, SeenUser};
+    let net_a = TestNet::start("chatnet.test").await;
+    let net_b = TestNet::start("azzurra.test").await;
+    let dir = tmpdir("accounts");
+    let (stop_tx, stop_rx) = mpsc::unbounded_channel();
+    let svc = tokio::spawn(runner::run(cfg(&dir, &net_a, &net_b), stop_rx));
+    assert!(until(10, || net_a.has_user("ItaLink") && net_b.has_user("ItaLink")).await);
+
+    let mut op_a = Client::connect(&net_a, "opA").await;
+    let mut alice = Client::connect(&net_a, "alice").await;
+    let mut anon = Client::connect(&net_a, "anon").await;
+    net_a.set_account("alice", "AliceAcct"); // logged in to services
+    op_a.join("#italy").await;
+    alice.join("#italy").await;
+    anon.join("#italy").await;
+    let mut op_b = Client::connect(&net_b, "opB").await;
+    let mut bob = Client::connect(&net_b, "bob").await;
+    op_b.join("#italia").await;
+    bob.join("#italia").await;
+    op_a.send("INVITE ItaLink #italy").await;
+    op_b.send("INVITE ItaLink #italia").await;
+    assert!(until(10, || net_a.is_in("#italy", "ItaLink") && net_b.is_in("#italia", "ItaLink")).await);
+    tokio::time::sleep(Duration::from_millis(500)).await;
+    op_a.say("ItaLink", "LINK #italy azzurra #italia").await;
+    op_b.wait_for(|l| l.contains("ACCEPT"), 5).await.unwrap();
+    op_b.say("ItaLink", "ACCEPT #italia chatnet #italy").await;
+    for (c, ch) in [(&mut op_a, "#italy"), (&mut op_b, "#italia")] {
+        c.say("ItaLink", &format!("SET {ch} min-presence 0")).await;
+        c.say("ItaLink", &format!("SET {ch} lang en")).await;
+    }
+    op_b.say("ItaLink", "SET #italia require-account on").await;
+    op_a.say("ItaLink", "LIVE #italy").await;
+    op_b.say("ItaLink", "LIVE #italia").await;
+    op_b.wait_for(|l| l.contains("now LIVE"), 5).await.unwrap();
+    tokio::time::sleep(Duration::from_millis(300)).await;
+
+    // The account (learned through WHOX) lets alice in; the anonymous user is kept out.
+    anon.say("#italy", "sono anonimo").await;
+    assert!(bob.silent_for(|l| l.contains("sono anonimo"), 800).await, "no account, no entry");
+    alice.say("#italy", "ho un account").await;
+    assert!(bob.wait_for(|l| l.contains("ho un account"), 8).await.is_some());
+
+    // And her ident is derived from the ACCOUNT, not the nick.
+    let want = itl_core::face::ident_for(&NetId::new("chatnet"), &SeenUser::new("alice", "x", "y").with_account("AliceAcct"));
+    assert_eq!(net_b.user_ident("alice|cha").unwrap(), want);
+
+    stop_tx.send(()).unwrap();
+    let _ = tokio::time::timeout(Duration::from_secs(5), svc).await;
+    let _ = std::fs::remove_dir_all(&dir);
+}

@@ -73,10 +73,15 @@ impl Member {
     }
 }
 
+/// Token that tags our own WHOX replies.
+const WHOX_TOKEN: &str = "152";
+
 struct Session {
     spec: NetSpec,
     nick: String,
     registered: bool,
+    /// The server supports WHOX (account names in WHO replies).
+    whox: bool,
     want: BTreeMap<String, String>, // folded -> as given
     members: HashMap<String, HashMap<String, Member>>, // folded chan -> folded nick -> member
     who_buf: HashMap<String, Vec<(SeenUser, Role)>>,
@@ -129,6 +134,7 @@ async fn session(
         spec: spec.clone(),
         nick: spec.service_nick.clone(),
         registered: false,
+        whox: false,
         want: std::mem::take(want),
         members: HashMap::new(),
         who_buf: HashMap::new(),
@@ -176,7 +182,13 @@ async fn session(
                         }
                         "ERROR" => return Ok(()),
                         "JOIN" => s.on_join(&m, &mut wr).await?,
+                        "005" => {
+                            if m.params.iter().any(|p| p == "WHOX" || p.starts_with("WHOX=")) {
+                                s.whox = true;
+                            }
+                        }
                         "352" => s.on_who(&m),
+                        "354" => s.on_whox(&m),
                         "315" => s.on_who_end(&m),
                         "PART" => s.on_part(&m, &nick_of(&m)),
                         "QUIT" => s.on_quit(&nick_of(&m)),
@@ -265,7 +277,12 @@ impl Session {
         if self.is_me(&p.name) {
             self.members.insert(fc.clone(), HashMap::new());
             self.who_buf.insert(fc, Vec::new());
-            wr.send(&format!("WHO {chan}")).await?;
+            if self.whox {
+                // t=token c=channel u=user h=host n=nick f=flags a=account
+                wr.send(&format!("WHO {chan} %tcuhnfa,{WHOX_TOKEN}")).await?;
+            } else {
+                wr.send(&format!("WHO {chan}")).await?;
+            }
             return Ok(());
         }
         let Some(map) = self.members.get_mut(&fc) else { return Ok(()) };
@@ -282,23 +299,43 @@ impl Session {
         Ok(())
     }
 
-    fn on_who(&mut self, m: &itl_proto::RawMessage) {
-        // :srv 352 me #chan ident host server nick flags :hops realname
-        if m.params.len() < 7 {
-            return;
-        }
-        let chan = fold(&m.params[1]);
-        let flags = &m.params[6];
-        let mut seen = SeenUser::new(&m.params[5], &m.params[2], &m.params[3]);
+    fn push_who(&mut self, chan: &str, mut seen: SeenUser, flags: &str) {
+        let chan = fold(chan);
         // Keep an account we already learned from extended-join.
-        if let Some(old) = self.members.get(&chan).and_then(|c| c.get(&fold(&seen.nick))) {
-            seen.account = old.seen.account.clone();
+        if seen.account.is_none() {
+            if let Some(old) = self.members.get(&chan).and_then(|c| c.get(&fold(&seen.nick))) {
+                seen.account = old.seen.account.clone();
+            }
         }
         let (op, voice) = (flags.contains('@'), flags.contains('+'));
         let role = if op { Role::Op } else if voice { Role::Voice } else { Role::Normal };
         if let Some(buf) = self.who_buf.get_mut(&chan) {
             buf.push((seen, role));
         }
+    }
+
+    fn on_who(&mut self, m: &itl_proto::RawMessage) {
+        // :srv 352 me #chan ident host server nick flags :hops realname
+        if m.params.len() < 7 {
+            return;
+        }
+        let seen = SeenUser::new(&m.params[5], &m.params[2], &m.params[3]);
+        let (chan, flags) = (m.params[1].clone(), m.params[6].clone());
+        self.push_who(&chan, seen, &flags);
+    }
+
+    fn on_whox(&mut self, m: &itl_proto::RawMessage) {
+        // :srv 354 me <token> #chan ident host nick flags account
+        if m.params.len() < 8 || m.params[1] != WHOX_TOKEN {
+            return;
+        }
+        let mut seen = SeenUser::new(&m.params[5], &m.params[3], &m.params[4]);
+        let acct = &m.params[7];
+        if acct != "0" && acct != "*" && !acct.is_empty() {
+            seen.account = Some(acct.clone());
+        }
+        let (chan, flags) = (m.params[2].clone(), m.params[6].clone());
+        self.push_who(&chan, seen, &flags);
     }
 
     fn on_who_end(&mut self, m: &itl_proto::RawMessage) {
@@ -378,11 +415,17 @@ impl Session {
 
     fn on_account(&mut self, m: &itl_proto::RawMessage, nick: &str) {
         let acc = m.params.first().cloned().unwrap_or_default();
+        let account = if acc == "*" || acc.is_empty() { None } else { Some(acc) };
         let f = fold(nick);
+        let mut found = false;
         for map in self.members.values_mut() {
             if let Some(mem) = map.get_mut(&f) {
-                mem.seen.account = if acc == "*" { None } else { Some(acc.clone()) };
+                mem.seen.account = account.clone();
+                found = true;
             }
+        }
+        if found {
+            self.emit(Event::AccountChange { net: self.spec.id.clone(), nick: nick.to_string(), account });
         }
     }
 

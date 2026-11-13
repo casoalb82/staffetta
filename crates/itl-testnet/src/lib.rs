@@ -345,11 +345,37 @@ async fn serve(sock: TcpStream, st: Arc<Mutex<State>>) -> std::io::Result<()> {
             "WHO" => {
                 let ch = m.params.first().cloned().unwrap_or_default();
                 let my = s.users[&me].nick.clone();
+                let whox = m.params.get(1).filter(|f| f.starts_with('%')).cloned();
                 if let Some(c) = s.chans.get(&fold(&ch)) {
                     for (k, (op, voice)) in &c.members {
                         let u = &s.users[k];
                         let fl = format!("H{}{}", if *op { "@" } else { "" }, if *voice { "+" } else { "" });
-                        let _ = tx.send(format!(":{sname} 352 {my} {ch} {} {} {sname} {} {fl} :0 {}", u.ident, u.host, u.nick, u.realname));
+                        if let Some(spec) = &whox {
+                            // %<letters>,<token>: answer with 354 in canonical field order
+                            let (letters, token) = spec[1..].split_once(',').unwrap_or((&spec[1..], "0"));
+                            let mut fields: Vec<String> = Vec::new();
+                            for want in ['t', 'c', 'i', 'u', 'h', 's', 'n', 'f', 'd', 'l', 'a', 'o'] {
+                                if !letters.contains(want) {
+                                    continue;
+                                }
+                                fields.push(match want {
+                                    't' => token.to_string(),
+                                    'c' => ch.clone(),
+                                    'i' => "127.0.0.1".into(),
+                                    'u' => u.ident.clone(),
+                                    'h' => u.host.clone(),
+                                    's' => sname.clone(),
+                                    'n' => u.nick.clone(),
+                                    'f' => fl.clone(),
+                                    'a' => u.account.clone().unwrap_or_else(|| "0".into()),
+                                    _ => "0".into(),
+                                });
+                            }
+                            let tail = if letters.contains('r') { format!(" :{}", u.realname) } else { String::new() };
+                            let _ = tx.send(format!(":{sname} 354 {my} {}{tail}", fields.join(" ")));
+                        } else {
+                            let _ = tx.send(format!(":{sname} 352 {my} {ch} {} {} {sname} {} {fl} :0 {}", u.ident, u.host, u.nick, u.realname));
+                        }
                     }
                 }
                 let _ = tx.send(format!(":{sname} 315 {my} {ch} :End of /WHO list."));
@@ -423,7 +449,7 @@ async fn serve(sock: TcpStream, st: Arc<Mutex<State>>) -> std::io::Result<()> {
                 me = nf;
                 let sn = s.name.clone();
                 let _ = tx.send(format!(":{sn} 001 {n} :Welcome to the {sn} test network, {n}"));
-                let _ = tx.send(format!(":{sn} 005 {n} PREFIX=(ov)@+ NICKLEN=30 CHANTYPES=#& CASEMAPPING=rfc1459 :are supported by this server"));
+                let _ = tx.send(format!(":{sn} 005 {n} PREFIX=(ov)@+ NICKLEN=30 CHANTYPES=#& CASEMAPPING=rfc1459 WHOX :are supported by this server"));
                 let _ = tx.send(format!(":{sn} 376 {n} :End of /MOTD command."));
             }
         }
