@@ -7,5 +7,8 @@ license.workspace = true
 
 [dependencies]
 itl-proto = { path = "../itl-proto" }
+itl-core = { path = "../itl-core" }
+tokio-rustls.workspace = true
+rustls-native-certs.workspace = true
 tokio.workspace = true
 anyhow.workspace = true

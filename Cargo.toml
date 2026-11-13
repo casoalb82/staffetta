@@ -16,4 +16,5 @@ thiserror = "2"
 anyhow = "1"
 tokio = { version = "1", features = ["net", "rt-multi-thread", "macros", "io-util", "time", "sync", "signal", "fs"] }
 tokio-rustls = "0.26"
+toml = "1"
 rustls-native-certs = "0.8"

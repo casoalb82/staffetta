@@ -12,3 +12,9 @@ itl-proto = { path = "../itl-proto" }
 itl-net = { path = "../itl-net" }
 tokio.workspace = true
 anyhow.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+toml.workspace = true
+
+[dev-dependencies]
+itl-testnet = { path = "../itl-testnet" }
