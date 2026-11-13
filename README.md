@@ -7,6 +7,14 @@ many networks, each one with a handful of chatters. Staffetta lets channels on
 different networks share one conversation, **without any channel giving up
 control**.
 
+**In italiano:** Staffetta collega i canali italiani di reti IRC diverse in un'unica
+conversazione. Lo decidono solo gli **owner dei canali**: niente da chiedere agli
+admin delle reti, niente da installare sui loro server. Ogni collegamento parte in
+anteprima, ognuno lo attiva quando vuole e può uscire in qualsiasi momento.
+
+**No server changes, no network admin needed.** To the network, Staffetta is an
+ordinary IRC client. Only channel owners decide.
+
 > Status: **working prototype** (pre-release). The core and the network layer are
 > tested end to end against a built-in fake IRC network, and it has been tried on
 > **two real IRC networks** in a private test channel (relay both ways, kick, ban,
@@ -28,6 +36,13 @@ in the user list, she can be voiced, kicked, banned and ignored with the tools t
 operators of `#italia` already use. `cha` says where she comes from, and her
 realname says plainly that she is a relayed user.
 
+## Try it in four steps (channel owners)
+
+1. Invite the service into your channel: `/INVITE Staffetta #yourchannel`.
+2. Ask for a link: `/msg Staffetta LINK #yourchannel othernet #theirchannel`.
+3. The other channel's operator accepts: `/msg Staffetta ACCEPT #theirchannel net #yourchannel`.
+4. Both sides read `SAMPLE`, then each says `LIVE`. Leave any time with `UNLINK`.
+
 ## Why owners can say yes
 
 Most bridges ask an owner to trust somebody else's software with their channel.
@@ -40,9 +55,10 @@ Staffetta is built the other way round:
 * **Each side switches LIVE by itself.** Chat only flows while *both* sides are live.
 * **Your rules, applied on your side.** Who may speak, flood limits, minimum time in
   channel, only-logged-in-users, blocked people, muted channels. Change them any time.
-* **Bans are ordinary bans.** Ban the puppet's mask (`*!*cha-3fa91@*`) with your
-  normal IRC client. It sticks to the person behind it, on your channel only.
-  A kick keeps them out for ten minutes, a ban forever.
+* **Bans work.** Ban the puppet's ident mask (`*!*cha-3fa91@*`) or use
+  `BLOCK #yourchannel alice|cha`. It sticks to the person behind it, on your
+  channel only. A kick keeps them out for ten minutes, a ban forever. (Never ban
+  the *host*: all relayed people share it.)
 * **One command stops everything**, instantly: `PAUSE`, `UNLINK`. Leaving costs nothing.
 * **An audit log** records who changed what.
 * **No surprises:** only channel operators can command the service, and it only
