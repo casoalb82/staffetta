@@ -209,6 +209,12 @@ pub enum Event {
         chan: Option<String>,
         why: LostWhy,
     },
+    /// A channel refused a line said by one of our puppets (ban, +m, +n...).
+    SayRefused {
+        net: NetId,
+        nick: String,
+        chan: String,
+    },
     /// The service is no longer in `chan` (kicked, banned, channel gone).
     ServiceLeft {
         chan: ChanKey,
@@ -369,6 +375,7 @@ pub struct Engine {
     cooldown: HashMap<(Uid, ChanKey), u64>,
     /// Who already got the "you are too new" notice (once per run, per channel).
     told_new: HashSet<(Uid, ChanKey)>,
+    told_refused: HashSet<(Uid, ChanKey)>,
     samples: HashMap<ChanKey, VecDeque<String>>,
     stats: HashMap<ChanKey, Stats>,
     audit: VecDeque<AuditRecord>,
@@ -389,6 +396,7 @@ impl Engine {
             buckets: HashMap::new(),
             cooldown: HashMap::new(),
             told_new: HashSet::new(),
+            told_refused: HashSet::new(),
             samples: HashMap::new(),
             stats: HashMap::new(),
             audit: VecDeque::new(),
@@ -552,6 +560,9 @@ impl Engine {
                 chan,
                 why,
             } => self.on_puppet_lost(now, &net, &nick, chan, why, &mut out),
+            Event::SayRefused { net, nick, chan } => {
+                self.on_say_refused(&net, &nick, &chan, &mut out)
+            }
             Event::ServiceLeft { chan } => {
                 self.chans.remove(&chan);
                 self.note(
@@ -1115,6 +1126,38 @@ impl Engine {
             self.drop_puppet(&n, u);
         }
         self.reconcile_all(now, out);
+    }
+
+    /// A remote channel did not accept a line from `nick`'s puppet. Tell the
+    /// real person once, privately, so they do not talk into the void.
+    fn on_say_refused(&mut self, net: &NetId, nick: &str, chan: &str, out: &mut Vec<Action>) {
+        let Some(uid) = self.puppet_nicks.get(&(net.clone(), fold(nick))).copied() else {
+            return;
+        };
+        let dest = ChanKey::new(&net.0, chan);
+        if !self.told_refused.insert((uid, dest.clone())) {
+            return;
+        }
+        let Some(rec) = self.urec.get(&uid).cloned() else {
+            return;
+        };
+        let origin = self
+            .chans
+            .iter()
+            .find(|(k, c)| k.net == rec.net && c.users.values().any(|u| u.uid == uid))
+            .map(|(k, _)| k.clone());
+        let Some(origin) = origin else { return };
+        let lang = self.lang_of(&origin);
+        let label = self.net_cfg(net).label;
+        out.push(Action::Reply {
+            net: rec.net.clone(),
+            nick: rec.seen.nick.clone(),
+            text: Msg::NotDelivered {
+                chan: &dest.chan,
+                net: &label,
+            }
+            .render(lang),
+        });
     }
 
     fn on_puppet_lost(

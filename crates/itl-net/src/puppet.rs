@@ -95,6 +95,13 @@ pub async fn run_puppet(
                             lost(&events, &net, &cur_nick, Some(chan), LostWhy::Kicked);
                         }
                     }
+                    "404" => {
+                        let _ = events.send(Inbound::Core(Event::SayRefused {
+                            net: net.clone(),
+                            nick: cur_nick.clone(),
+                            chan: m.params.get(1).cloned().unwrap_or_default(),
+                        }));
+                    }
                     "474" => lost(&events, &net, &cur_nick, m.params.get(1).cloned(), LostWhy::Banned),
                     "471" | "473" | "475" | "403" | "405" | "477" => {
                         lost(&events, &net, &cur_nick, m.params.get(1).cloned(), LostWhy::Kicked)

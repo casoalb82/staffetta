@@ -35,6 +35,10 @@ pub enum Msg<'a> {
         chan: &'a str,
         secs: u64,
     },
+    NotDelivered {
+        chan: &'a str,
+        net: &'a str,
+    },
     AskNotice {
         mine_chan: &'a str,
         mine_net: &'a str,
@@ -199,6 +203,13 @@ impl Msg<'_> {
                     format!("Quel link ha già un canale su {net}. Un solo canale per rete.")
                 } else {
                     format!("That link already has a channel on {net}. One channel per network.")
+                }
+            }
+            NotDelivered { chan, net } => {
+                if it {
+                    format!("{chan} su {net} non ha accettato questo tuo messaggio (puo' essere un ban o un canale moderato). Non vedrai altri avvisi.")
+                } else {
+                    format!("{chan} on {net} did not accept this line of yours (it may be a ban or a moderated channel). You will not be told again.")
                 }
             }
             TooNew { chan, secs } => {

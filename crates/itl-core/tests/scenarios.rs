@@ -810,3 +810,29 @@ fn every_message_exists_in_both_languages() {
         }
     }
 }
+
+#[test]
+fn a_refused_line_is_told_to_the_speaker_once() {
+    let (mut w, a, b) = World::linked_live();
+    w.say(&a, "alice", "ciao"); // spawns alice|cha on azzurra
+    let refuse = |w: &mut World| {
+        w.ev(Event::SayRefused {
+            net: b.net.clone(),
+            nick: "alice|cha".into(),
+            chan: "#italia".into(),
+        })
+    };
+    let acts = refuse(&mut w);
+    let told: Vec<_> = acts
+        .iter()
+        .filter_map(|x| match x {
+            Action::Reply { net, nick, text } => Some((net.clone(), nick.clone(), text.clone())),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(told.len(), 1, "{acts:?}");
+    assert_eq!(told[0].0, a.net, "told on her own network");
+    assert_eq!(told[0].1, "alice");
+    assert!(told[0].2.contains("#italia"), "{}", told[0].2);
+    assert!(replies(&refuse(&mut w)).is_empty(), "only once");
+}
