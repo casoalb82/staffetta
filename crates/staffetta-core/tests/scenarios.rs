@@ -327,8 +327,17 @@ fn bots_commands_and_formatting_are_handled() {
 }
 
 #[test]
-fn newcomers_cannot_speak_across_immediately() {
+fn newcomers_wait_only_when_the_owner_asks_for_it() {
     let (mut w, a, _b) = World::linked_live();
+    // By default nobody has to wait: a newcomer's first line crosses.
+    w.ev(Event::Join {
+        chan: a.clone(),
+        user: user("nuovo"),
+        role: Role::Normal,
+    });
+    assert_eq!(says(&w.say(&a, "nuovo", "ciao a tutti")).len(), 1);
+    // An owner who gets hit-and-run trolls can turn the wait on.
+    w.cmd("chatnet", "opA", "SET #italy min-presence 120");
     w.ev(Event::Join {
         chan: a.clone(),
         user: user("troll"),

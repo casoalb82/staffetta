@@ -88,7 +88,7 @@ impl Default for Policy {
             accept_in: true,
             presence: Presence::Lazy { idle_secs: 1800 },
             require_account_in: false,
-            min_presence_secs: 120,
+            min_presence_secs: 0,
             rate: RateLimit {
                 burst: 5,
                 per_secs: 10,

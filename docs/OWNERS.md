@@ -67,7 +67,7 @@ too (`require_account_for_owner = true` in the configuration).
 | `accept-in` | on | Show the linked channels' chat in yours. |
 | `presence` | lazy 30 min | `full`: everyone is in your user list. `lazy [minutes]`: a person appears when they speak and leaves after being quiet. |
 | `require-account` | off | Only show people who are logged in to services. |
-| `min-presence` | 120 s | A person must have been in *their* channel this long before their lines cross. Stops hit-and-run trolling. |
+| `min-presence` | 0 (off) | A person must have been in *their* channel this long (seconds) before their lines cross. Turn it on, e.g. `SET #you min-presence 120`, if you get hit-and-run trolls. |
 | `rate` | 5/10 | Lines per person per seconds. |
 | `max-line` | 350 | Longest relayed line. |
 | `strip-formatting` | on | Remove colours, bold and other control codes. |
