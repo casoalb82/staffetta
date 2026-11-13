@@ -90,3 +90,15 @@ loop.
 * Without services-account information the identity falls back to the nick, which
   is weaker. Account tracking via WHOX is on the roadmap.
 * Per-network nick rules differ; unusual networks may need a tuned `max_nick`.
+
+
+## Principle: no ircd involvement
+
+Ita Link is an ordinary IRC client from the network's point of view. It never
+needs WEBIRC, an `auth {}` block, oper rights or any other server-side setting:
+only the **channel owners** decide. Consequences:
+
+* Puppets show the service's own (masked) host, never a user's real address.
+  Bans work on the per-person ident (`*!*cha-3fa91@*`), not on hosts.
+* Per-IP connection limits are the network's rule. If they bite, use
+  `transport = "service-bot"` or the IPv6 pool; do not ask for an exemption.

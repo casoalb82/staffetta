@@ -125,6 +125,8 @@ pub async fn run(cfg: Config, mut shutdown: mpsc::UnboundedReceiver<()>) -> Resu
 
     let mut tick = tokio::time::interval(std::time::Duration::from_secs(60));
     tick.tick().await;
+    // ITL_DEBUG=1 logs every event (including chat text): for trials only.
+    let debug = std::env::var_os("ITL_DEBUG").is_some();
     loop {
         let mut dirty = false;
         let (acts, persist_now) = tokio::select! {
@@ -156,7 +158,16 @@ pub async fn run(cfg: Config, mut shutdown: mpsc::UnboundedReceiver<()>) -> Resu
                             }
                             dirty = true;
                         }
-                        (engine.handle(now_ms(), ev), is_cmd)
+                        if debug {
+                            let mut d = format!("{ev:?}");
+                            d.truncate(300);
+                            log(&format!("debug event: {d}"));
+                        }
+                        let acts = engine.handle(now_ms(), ev);
+                        if debug {
+                            log(&format!("debug -> {} actions", acts.len()));
+                        }
+                        (acts, is_cmd)
                     }
                 }
             }
