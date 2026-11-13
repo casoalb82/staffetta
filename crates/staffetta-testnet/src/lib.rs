@@ -6,8 +6,8 @@
 //! (multi-prefix, extended-join, account-notify, userhost-in-names), JOIN with
 //! bans, PART, QUIT, NICK, PRIVMSG/NOTICE, NAMES, WHO, MODE o/v/b, KICK, INVITE.
 
-use itl_core::model::{fold, glob};
-use itl_proto::{parse, RawMessage};
+use staffetta_core::model::{fold, glob};
+use staffetta_proto::{parse, RawMessage};
 use std::collections::{BTreeMap, HashMap};
 use std::net::SocketAddr;
 use std::sync::{Arc, Mutex};

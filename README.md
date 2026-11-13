@@ -1,9 +1,9 @@
-# Ita Link
+# Staffetta
 
 **Link your IRC channel with channels on other networks - and stay the boss of your own channel.**
 
 Small IRC channels are quiet. The people are out there, but they are spread over
-many networks, each one with a handful of chatters. Ita Link lets channels on
+many networks, each one with a handful of chatters. Staffetta lets channels on
 different networks share one conversation, **without any channel giving up
 control**.
 
@@ -29,7 +29,7 @@ realname says plainly that she is a relayed user.
 ## Why owners can say yes
 
 Most bridges ask an owner to trust somebody else's software with their channel.
-Ita Link is built the other way round:
+Staffetta is built the other way round:
 
 * **Nothing happens without both owners.** A link needs the operators of *both*
   channels to agree. A third channel needs everybody's yes.
@@ -50,7 +50,7 @@ See [docs/OWNERS.md](docs/OWNERS.md) for the owner's guide.
 
 ## How it works
 
-For every person who talks in a linked channel, Ita Link opens a normal IRC
+For every person who talks in a linked channel, Staffetta opens a normal IRC
 connection to each of the *other* networks and speaks through it. On networks that
 do not allow extra connections, a `service-bot` mode relays with one clearly
 labelled bot instead (`<alice|cha> ciao`). The channel owner can see and control
@@ -64,8 +64,8 @@ scenario tests. See [docs/DESIGN.md](docs/DESIGN.md).
 ```sh
 cargo test                       # runs everything against a built-in fake network
 cp config.example.toml config.toml
-ita-link check config.toml
-ita-link config.toml
+staffetta check config.toml
+staffetta config.toml
 ```
 
 Plain-text IRC is accepted **only towards localhost** (that is what the tests use).

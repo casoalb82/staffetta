@@ -4,9 +4,9 @@
 //! config validator refuses plain-text anywhere else, and the test asserts the
 //! ports it connects to are the ones its own servers own.
 
-use ita_link::config::Config;
-use ita_link::runner;
-use itl_testnet::{Client, TestNet};
+use staffetta::config::Config;
+use staffetta::runner;
+use staffetta_testnet::{Client, TestNet};
 use std::time::Duration;
 use tokio::sync::mpsc;
 
@@ -14,7 +14,7 @@ fn cfg(dir: &std::path::Path, a: &TestNet, b: &TestNet) -> Config {
     assert!(a.addr.ip().is_loopback() && b.addr.ip().is_loopback());
     let toml = format!(
         r#"
-        service_nick = "ItaLink"
+        service_nick = "Staffetta"
         default_lang = "en"
         state_dir = "{}"
         [[network]]
@@ -40,7 +40,7 @@ fn cfg(dir: &std::path::Path, a: &TestNet, b: &TestNet) -> Config {
 }
 
 fn tmpdir(tag: &str) -> std::path::PathBuf {
-    let d = std::env::temp_dir().join(format!("ita-link-e2e-{tag}-{}", std::process::id()));
+    let d = std::env::temp_dir().join(format!("staffetta-e2e-{tag}-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&d);
     d
 }
@@ -67,8 +67,8 @@ async fn two_networks_one_conversation() {
 
     // The service connects to both networks (and nobody else exists yet).
     assert!(
-        until(10, || net_a.has_user("ItaLink")
-            && net_b.has_user("ItaLink"))
+        until(10, || net_a.has_user("Staffetta")
+            && net_b.has_user("Staffetta"))
         .await,
         "service did not connect"
     );
@@ -84,24 +84,24 @@ async fn two_networks_one_conversation() {
     bob.join("#italia").await;
 
     // Consent step 1: each channel's operator invites the service in.
-    op_a.send("INVITE ItaLink #italy").await;
-    op_b.send("INVITE ItaLink #italia").await;
+    op_a.send("INVITE Staffetta #italy").await;
+    op_b.send("INVITE Staffetta #italia").await;
     assert!(
-        until(10, || net_a.is_in("#italy", "ItaLink")
-            && net_b.is_in("#italia", "ItaLink"))
+        until(10, || net_a.is_in("#italy", "Staffetta")
+            && net_b.is_in("#italia", "Staffetta"))
         .await
     );
     tokio::time::sleep(Duration::from_millis(500)).await; // let it learn who is in the channels
 
     // Consent step 2: both operators agree, then each goes LIVE by itself.
-    op_a.say("ItaLink", "LINK #italy azzurra #italia").await;
+    op_a.say("Staffetta", "LINK #italy azzurra #italia").await;
     let note = op_b
         .wait_for(|l| l.contains("NOTICE #italia") && l.contains("ACCEPT"), 5)
         .await;
     assert!(note.is_some(), "the other channel is told how to accept");
-    op_b.say("ItaLink", "ACCEPT #italia chatnet #italy").await;
-    op_a.say("ItaLink", "SET #italy min-presence 0").await;
-    op_b.say("ItaLink", "SET #italia min-presence 0").await;
+    op_b.say("Staffetta", "ACCEPT #italia chatnet #italy").await;
+    op_a.say("Staffetta", "SET #italy min-presence 0").await;
+    op_b.say("Staffetta", "SET #italia min-presence 0").await;
 
     // Preview: nothing crosses yet.
     alice.say("#italy", "ciao prima del live").await;
@@ -111,8 +111,8 @@ async fn two_networks_one_conversation() {
         "preview must not leak"
     );
 
-    op_a.say("ItaLink", "LIVE #italy").await;
-    op_b.say("ItaLink", "LIVE #italia").await;
+    op_a.say("Staffetta", "LIVE #italy").await;
+    op_b.say("Staffetta", "LIVE #italia").await;
     op_b.wait_for(|l| l.contains("now LIVE"), 5)
         .await
         .expect("live confirmed");
@@ -157,8 +157,8 @@ async fn two_networks_one_conversation() {
     assert!(!net_b.is_in("#italia", "alice|cha"));
 
     // The language is per channel: #italia switches to Italian.
-    op_b.say("ItaLink", "SET #italia lang it").await;
-    op_b.say("ItaLink", "STATUS #italia").await;
+    op_b.say("Staffetta", "SET #italia lang it").await;
+    op_b.say("Staffetta", "STATUS #italia").await;
     assert!(
         op_b.wait_for(|l| l.contains("righe in entrata"), 5)
             .await
@@ -167,7 +167,7 @@ async fn two_networks_one_conversation() {
     );
 
     // The owner can see it in the audit trail.
-    op_b.say("ItaLink", "AUDIT #italia 10").await;
+    op_b.say("Staffetta", "AUDIT #italia 10").await;
     assert!(
         op_b.wait_for(
             |l| l.contains("NOTICE") && l.contains("was kicked: kept out"),
@@ -179,7 +179,7 @@ async fn two_networks_one_conversation() {
     );
 
     // Instant stop.
-    op_b.say("ItaLink", "UNLINK #italia").await;
+    op_b.say("Staffetta", "UNLINK #italia").await;
     op_b.wait_for(|l| l.contains("non è più collegato"), 5)
         .await
         .expect("unlink confirmed");
@@ -199,8 +199,8 @@ async fn survives_a_network_drop_and_a_restart() {
     let (stop_tx, stop_rx) = mpsc::unbounded_channel();
     let svc = tokio::spawn(runner::run(cfg(&dir, &net_a, &net_b), stop_rx));
     assert!(
-        until(10, || net_a.has_user("ItaLink")
-            && net_b.has_user("ItaLink"))
+        until(10, || net_a.has_user("Staffetta")
+            && net_b.has_user("Staffetta"))
         .await
     );
 
@@ -212,36 +212,36 @@ async fn survives_a_network_drop_and_a_restart() {
     let mut bob = Client::connect(&net_b, "bob").await;
     op_b.join("#italia").await;
     bob.join("#italia").await;
-    op_a.send("INVITE ItaLink #italy").await;
-    op_b.send("INVITE ItaLink #italia").await;
+    op_a.send("INVITE Staffetta #italy").await;
+    op_b.send("INVITE Staffetta #italia").await;
     assert!(
-        until(10, || net_a.is_in("#italy", "ItaLink")
-            && net_b.is_in("#italia", "ItaLink"))
+        until(10, || net_a.is_in("#italy", "Staffetta")
+            && net_b.is_in("#italia", "Staffetta"))
         .await
     );
     tokio::time::sleep(Duration::from_millis(500)).await;
-    op_a.say("ItaLink", "LINK #italy azzurra #italia").await;
+    op_a.say("Staffetta", "LINK #italy azzurra #italia").await;
     op_b.wait_for(|l| l.contains("ACCEPT"), 5).await.unwrap();
-    op_b.say("ItaLink", "ACCEPT #italia chatnet #italy").await;
+    op_b.say("Staffetta", "ACCEPT #italia chatnet #italy").await;
     for (c, ch, cmd) in [
         (&mut op_a, "#italy", "min-presence 0"),
         (&mut op_b, "#italia", "min-presence 0"),
     ] {
-        c.say("ItaLink", &format!("SET {ch} {cmd}")).await;
+        c.say("Staffetta", &format!("SET {ch} {cmd}")).await;
     }
-    op_a.say("ItaLink", "LIVE #italy").await;
-    op_b.say("ItaLink", "LIVE #italia").await;
+    op_a.say("Staffetta", "LIVE #italy").await;
+    op_b.say("Staffetta", "LIVE #italia").await;
     op_b.wait_for(|l| l.contains("now LIVE"), 5).await.unwrap();
     tokio::time::sleep(Duration::from_millis(200)).await;
 
     // 1) The service's connection to one network dies: it must come back alone.
-    net_a.disconnect("ItaLink");
+    net_a.disconnect("Staffetta");
     assert!(
-        until(5, || !net_a.has_user("ItaLink")).await,
+        until(5, || !net_a.has_user("Staffetta")).await,
         "connection dropped"
     );
     assert!(
-        until(20, || net_a.is_in("#italy", "ItaLink")).await,
+        until(20, || net_a.is_in("#italy", "Staffetta")).await,
         "service reconnected and rejoined"
     );
     tokio::time::sleep(Duration::from_millis(700)).await;
@@ -261,8 +261,8 @@ async fn survives_a_network_drop_and_a_restart() {
     let (stop_tx2, stop_rx2) = mpsc::unbounded_channel();
     let svc2 = tokio::spawn(runner::run(cfg(&dir, &net_a, &net_b), stop_rx2));
     assert!(
-        until(20, || net_a.is_in("#italy", "ItaLink")
-            && net_b.is_in("#italia", "ItaLink"))
+        until(20, || net_a.is_in("#italy", "Staffetta")
+            && net_b.is_in("#italia", "Staffetta"))
         .await,
         "rejoined after restart"
     );
@@ -283,15 +283,15 @@ async fn survives_a_network_drop_and_a_restart() {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn accounts_anchor_identity_and_gate_entry() {
-    use itl_core::model::{NetId, SeenUser};
+    use staffetta_core::model::{NetId, SeenUser};
     let net_a = TestNet::start("chatnet.test").await;
     let net_b = TestNet::start("azzurra.test").await;
     let dir = tmpdir("accounts");
     let (stop_tx, stop_rx) = mpsc::unbounded_channel();
     let svc = tokio::spawn(runner::run(cfg(&dir, &net_a, &net_b), stop_rx));
     assert!(
-        until(10, || net_a.has_user("ItaLink")
-            && net_b.has_user("ItaLink"))
+        until(10, || net_a.has_user("Staffetta")
+            && net_b.has_user("Staffetta"))
         .await
     );
 
@@ -306,24 +306,26 @@ async fn accounts_anchor_identity_and_gate_entry() {
     let mut bob = Client::connect(&net_b, "bob").await;
     op_b.join("#italia").await;
     bob.join("#italia").await;
-    op_a.send("INVITE ItaLink #italy").await;
-    op_b.send("INVITE ItaLink #italia").await;
+    op_a.send("INVITE Staffetta #italy").await;
+    op_b.send("INVITE Staffetta #italia").await;
     assert!(
-        until(10, || net_a.is_in("#italy", "ItaLink")
-            && net_b.is_in("#italia", "ItaLink"))
+        until(10, || net_a.is_in("#italy", "Staffetta")
+            && net_b.is_in("#italia", "Staffetta"))
         .await
     );
     tokio::time::sleep(Duration::from_millis(500)).await;
-    op_a.say("ItaLink", "LINK #italy azzurra #italia").await;
+    op_a.say("Staffetta", "LINK #italy azzurra #italia").await;
     op_b.wait_for(|l| l.contains("ACCEPT"), 5).await.unwrap();
-    op_b.say("ItaLink", "ACCEPT #italia chatnet #italy").await;
+    op_b.say("Staffetta", "ACCEPT #italia chatnet #italy").await;
     for (c, ch) in [(&mut op_a, "#italy"), (&mut op_b, "#italia")] {
-        c.say("ItaLink", &format!("SET {ch} min-presence 0")).await;
-        c.say("ItaLink", &format!("SET {ch} lang en")).await;
+        c.say("Staffetta", &format!("SET {ch} min-presence 0"))
+            .await;
+        c.say("Staffetta", &format!("SET {ch} lang en")).await;
     }
-    op_b.say("ItaLink", "SET #italia require-account on").await;
-    op_a.say("ItaLink", "LIVE #italy").await;
-    op_b.say("ItaLink", "LIVE #italia").await;
+    op_b.say("Staffetta", "SET #italia require-account on")
+        .await;
+    op_a.say("Staffetta", "LIVE #italy").await;
+    op_b.say("Staffetta", "LIVE #italia").await;
     op_b.wait_for(|l| l.contains("now LIVE"), 5).await.unwrap();
     tokio::time::sleep(Duration::from_millis(300)).await;
 
@@ -340,7 +342,7 @@ async fn accounts_anchor_identity_and_gate_entry() {
         .is_some());
 
     // And her ident is derived from the ACCOUNT, not the nick.
-    let want = itl_core::face::ident_for(
+    let want = staffetta_core::face::ident_for(
         &NetId::new("chatnet"),
         &SeenUser::new("alice", "x", "y").with_account("AliceAcct"),
     );
@@ -378,8 +380,8 @@ async fn status_page_lists_only_what_owners_made_public() {
     let (stop_tx, stop_rx) = mpsc::unbounded_channel();
     let svc = tokio::spawn(runner::run(c, stop_rx));
     assert!(
-        until(10, || net_a.has_user("ItaLink")
-            && net_b.has_user("ItaLink"))
+        until(10, || net_a.has_user("Staffetta")
+            && net_b.has_user("Staffetta"))
         .await
     );
 
@@ -389,17 +391,18 @@ async fn status_page_lists_only_what_owners_made_public() {
     alice.join("#italy").await;
     let mut op_b = Client::connect(&net_b, "opB").await;
     op_b.join("#segreto").await;
-    op_a.send("INVITE ItaLink #italy").await;
-    op_b.send("INVITE ItaLink #segreto").await;
+    op_a.send("INVITE Staffetta #italy").await;
+    op_b.send("INVITE Staffetta #segreto").await;
     assert!(
-        until(10, || net_a.is_in("#italy", "ItaLink")
-            && net_b.is_in("#segreto", "ItaLink"))
+        until(10, || net_a.is_in("#italy", "Staffetta")
+            && net_b.is_in("#segreto", "Staffetta"))
         .await
     );
     tokio::time::sleep(Duration::from_millis(500)).await;
-    op_a.say("ItaLink", "LINK #italy azzurra #segreto").await;
+    op_a.say("Staffetta", "LINK #italy azzurra #segreto").await;
     op_b.wait_for(|l| l.contains("ACCEPT"), 5).await.unwrap();
-    op_b.say("ItaLink", "ACCEPT #segreto chatnet #italy").await;
+    op_b.say("Staffetta", "ACCEPT #segreto chatnet #italy")
+        .await;
     tokio::time::sleep(Duration::from_millis(300)).await;
 
     // Nobody opted in: the page names no channel at all.
@@ -415,7 +418,7 @@ async fn status_page_lists_only_what_owners_made_public() {
     );
 
     // Only #italy's owner opts in.
-    op_a.say("ItaLink", "SET #italy public on").await;
+    op_a.say("Staffetta", "SET #italy public on").await;
     tokio::time::sleep(Duration::from_millis(300)).await;
     let json = http_get(port, "/status.json").await;
     assert!(json.contains("#italy"), "{json}");

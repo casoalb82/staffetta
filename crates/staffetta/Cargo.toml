@@ -1,0 +1,20 @@
+[package]
+name = "staffetta"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "Staffetta: link Italian IRC channels across networks, owner in control"
+
+[dependencies]
+staffetta-core = { path = "../staffetta-core" }
+staffetta-proto = { path = "../staffetta-proto" }
+staffetta-net = { path = "../staffetta-net" }
+tokio.workspace = true
+anyhow.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+toml.workspace = true
+
+[dev-dependencies]
+staffetta-testnet = { path = "../staffetta-testnet" }

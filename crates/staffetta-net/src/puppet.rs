@@ -2,10 +2,10 @@
 
 use crate::conn::{self, Target};
 use crate::network::Inbound;
-use itl_core::engine::{Event, LostWhy};
-use itl_core::face::Face;
-use itl_core::model::{fold, NetId, SayKind, Uid};
-use itl_proto::parse;
+use staffetta_core::engine::{Event, LostWhy};
+use staffetta_core::face::Face;
+use staffetta_core::model::{fold, NetId, SayKind, Uid};
+use staffetta_proto::parse;
 use std::collections::VecDeque;
 use std::time::Duration;
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
@@ -111,7 +111,7 @@ pub async fn run_puppet(
             }
             cmd = rx.recv() => {
                 match cmd {
-                    None => { let _ = wr.send("QUIT :Ita Link").await; quit_requested = true; break 'main; }
+                    None => { let _ = wr.send("QUIT :Staffetta").await; quit_requested = true; break 'main; }
                     Some(c) => {
                         if registered {
                             if apply(&mut wr, &mut cur_nick, &mut quit_requested, c).await.is_err() { break 'main; }

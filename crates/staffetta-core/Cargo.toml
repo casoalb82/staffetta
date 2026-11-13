@@ -1,10 +1,10 @@
 [package]
-name = "itl-core"
+name = "staffetta-core"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
 license.workspace = true
-description = "Ita Link core: link model, owner policy and relay engine (no I/O)"
+description = "Staffetta core: link model, owner policy and relay engine (no I/O)"
 
 [dependencies]
 serde.workspace = true

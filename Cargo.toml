@@ -7,7 +7,7 @@ version = "0.1.0"
 edition = "2021"
 authors = ["abcX"]
 license = "MIT"
-repository = "https://github.com/casoalb82/ita-link"
+repository = "https://github.com/casoalb82/staffetta"
 
 [workspace.dependencies]
 serde = { version = "1", features = ["derive"] }

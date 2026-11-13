@@ -1,14 +1,12 @@
 [package]
-name = "itl-net"
+name = "staffetta-testnet"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
 license.workspace = true
 
 [dependencies]
-itl-proto = { path = "../itl-proto" }
-itl-core = { path = "../itl-core" }
-tokio-rustls.workspace = true
-rustls-native-certs.workspace = true
+staffetta-proto = { path = "../staffetta-proto" }
+staffetta-core = { path = "../staffetta-core" }
 tokio.workspace = true
 anyhow.workspace = true

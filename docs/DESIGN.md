@@ -26,18 +26,18 @@ Its author's own retrospective and the code show what to avoid:
 
 ```
  network A ──┐                      ┌── network A  (service + puppets)
- network B ──┼─► itl-net ─ events ─► itl-core::Engine ─ actions ─► itl-net ─┼── network B
+ network B ──┼─► staffetta-net ─ events ─► staffetta-core::Engine ─ actions ─► staffetta-net ─┼── network B
  network C ──┘   (sockets)          (no I/O, no clock)           (sockets)  └── network C
 ```
 
-* `itl-proto` - parse and format IRC lines (with IRCv3 tags).
-* `itl-core` - the engine. `Engine::handle(now_ms, Event) -> Vec<Action>`.
+* `staffetta-proto` - parse and format IRC lines (with IRCv3 tags).
+* `staffetta-core` - the engine. `Engine::handle(now_ms, Event) -> Vec<Action>`.
   No sockets, no clock, no randomness: every behaviour is a plain unit test.
-* `itl-net` - one task per network. It keeps the service connection (learns who is
+* `staffetta-net` - one task per network. It keeps the service connection (learns who is
   in the channels, hears commands) and one connection per puppet. It turns lines
   into events and actions into lines.
-* `ita-link` - configuration, on-disk state (atomic writes), audit log, glue.
-* `itl-testnet` - a small fake IRC network on loopback used by the tests.
+* `staffetta` - configuration, on-disk state (atomic writes), audit log, glue.
+* `staffetta-testnet` - a small fake IRC network on loopback used by the tests.
 
 ### Identity of a remote person (the "face")
 
@@ -94,7 +94,7 @@ loop.
 
 ## Principle: no ircd involvement
 
-Ita Link is an ordinary IRC client from the network's point of view. It never
+Staffetta is an ordinary IRC client from the network's point of view. It never
 needs WEBIRC, an `auth {}` block, oper rights or any other server-side setting:
 only the **channel owners** decide. Consequences:
 

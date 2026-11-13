@@ -3,10 +3,10 @@
 use crate::conn::{self, Target};
 use crate::puppet::{run_puppet, PuppetCmd};
 use anyhow::Result;
-use itl_core::engine::Event;
-use itl_core::face::Face;
-use itl_core::model::{fold, ChanKey, NetId, Role, SayKind, SeenUser, Uid};
-use itl_proto::parse;
+use staffetta_core::engine::Event;
+use staffetta_core::face::Face;
+use staffetta_core::model::{fold, ChanKey, NetId, Role, SayKind, SeenUser, Uid};
+use staffetta_proto::parse;
 use std::collections::{BTreeMap, HashMap};
 use std::net::IpAddr;
 use std::time::Duration;
@@ -199,7 +199,7 @@ async fn session(
                 line = rd.next() => {
                     let Some(line) = line? else { return Ok(()) };
                     let Some(m) = parse(&line) else { continue };
-                    let nick_of = |m: &itl_proto::RawMessage| m.prefix.as_ref().map(|p| p.name.clone()).unwrap_or_default();
+                    let nick_of = |m: &staffetta_proto::RawMessage| m.prefix.as_ref().map(|p| p.name.clone()).unwrap_or_default();
                     match m.command.as_str() {
                         "PING" => wr.send(&format!("PONG :{}", m.params.first().cloned().unwrap_or_default())).await?,
                         "CAP" => {
@@ -291,7 +291,7 @@ impl Session {
             ToNet::ServicePart(ch) => {
                 self.want.remove(&fold(&ch));
                 if self.registered {
-                    wr.send(&format!("PART {ch} :Ita Link")).await?;
+                    wr.send(&format!("PART {ch} :Staffetta")).await?;
                 }
             }
             ToNet::ServiceSay {
@@ -351,7 +351,7 @@ impl Session {
 
     async fn on_join(
         &mut self,
-        m: &itl_proto::RawMessage,
+        m: &staffetta_proto::RawMessage,
         wr: &mut conn::LineWriter,
     ) -> Result<()> {
         let Some(p) = &m.prefix else { return Ok(()) };
@@ -425,7 +425,7 @@ impl Session {
         }
     }
 
-    fn on_who(&mut self, m: &itl_proto::RawMessage) {
+    fn on_who(&mut self, m: &staffetta_proto::RawMessage) {
         // :srv 352 me #chan ident host server nick flags :hops realname
         if m.params.len() < 7 {
             return;
@@ -435,7 +435,7 @@ impl Session {
         self.push_who(&chan, seen, &flags);
     }
 
-    fn on_whox(&mut self, m: &itl_proto::RawMessage) {
+    fn on_whox(&mut self, m: &staffetta_proto::RawMessage) {
         // :srv 354 me <token> #chan ident host nick flags account
         if m.params.len() < 8 || m.params[1] != WHOX_TOKEN {
             return;
@@ -449,7 +449,7 @@ impl Session {
         self.push_who(&chan, seen, &flags);
     }
 
-    fn on_who_end(&mut self, m: &itl_proto::RawMessage) {
+    fn on_who_end(&mut self, m: &staffetta_proto::RawMessage) {
         let Some(chan) = m.params.get(1) else { return };
         let fc = fold(chan);
         let Some(users) = self.who_buf.remove(&fc) else {
@@ -471,7 +471,7 @@ impl Session {
         self.emit(Event::Sync { chan: key, users });
     }
 
-    fn on_part(&mut self, m: &itl_proto::RawMessage, nick: &str) {
+    fn on_part(&mut self, m: &staffetta_proto::RawMessage, nick: &str) {
         let chan = m.params.first().cloned().unwrap_or_default();
         let fc = fold(&chan);
         if self.is_me(nick) {
@@ -503,7 +503,7 @@ impl Session {
         }
     }
 
-    fn on_nick(&mut self, m: &itl_proto::RawMessage, old: &str) {
+    fn on_nick(&mut self, m: &staffetta_proto::RawMessage, old: &str) {
         let new = m.params.first().cloned().unwrap_or_default();
         if self.is_me(old) {
             self.nick = new;
@@ -527,7 +527,7 @@ impl Session {
         }
     }
 
-    fn on_kick(&mut self, m: &itl_proto::RawMessage) {
+    fn on_kick(&mut self, m: &staffetta_proto::RawMessage) {
         let chan = m.params.first().cloned().unwrap_or_default();
         let victim = m.params.get(1).cloned().unwrap_or_default();
         let fc = fold(&chan);
@@ -548,7 +548,7 @@ impl Session {
         }
     }
 
-    fn on_account(&mut self, m: &itl_proto::RawMessage, nick: &str) {
+    fn on_account(&mut self, m: &staffetta_proto::RawMessage, nick: &str) {
         let acc = m.params.first().cloned().unwrap_or_default();
         let account = if acc == "*" || acc.is_empty() {
             None
@@ -572,7 +572,7 @@ impl Session {
         }
     }
 
-    fn on_mode(&mut self, m: &itl_proto::RawMessage) {
+    fn on_mode(&mut self, m: &staffetta_proto::RawMessage) {
         let chan = m.params.first().cloned().unwrap_or_default();
         if !chan.starts_with(['#', '&']) {
             return;
@@ -617,7 +617,7 @@ impl Session {
         }
     }
 
-    fn on_privmsg(&mut self, m: &itl_proto::RawMessage) {
+    fn on_privmsg(&mut self, m: &staffetta_proto::RawMessage) {
         let Some(p) = &m.prefix else { return };
         if p.user.is_none() {
             return; // from a server, not a person
@@ -650,7 +650,7 @@ impl Session {
 
     async fn on_invite(
         &mut self,
-        m: &itl_proto::RawMessage,
+        m: &staffetta_proto::RawMessage,
         by: &str,
         wr: &mut conn::LineWriter,
     ) -> Result<()> {

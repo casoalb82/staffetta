@@ -1,11 +1,11 @@
-# Installing Ita Link
+# Installing Staffetta
 
-Ita Link is a single static-ish binary plus a configuration file. It needs no
+Staffetta is a single static-ish binary plus a configuration file. It needs no
 database.
 
 ## Before you connect to anybody
 
-Ita Link opens **real IRC connections** (the service, and one per remote person
+Staffetta opens **real IRC connections** (the service, and one per remote person
 in `puppets` mode). Read the bot and connection policy of every network you
 configure and **ask its staff first**. Many networks want a service nick
 reserved, a connection class or an exemption for the connection limit. Nothing in
@@ -16,14 +16,14 @@ between channels whose owners asked for it.
 
 ```sh
 cargo build --release
-install -m 0755 target/release/ita-link /usr/local/bin/ita-link
+install -m 0755 target/release/staffetta /usr/local/bin/staffetta
 ```
 
 ## Configure
 
 ```sh
-cp config.example.toml /etc/ita-link/config.toml
-ita-link check /etc/ita-link/config.toml
+cp config.example.toml /etc/staffetta/config.toml
+staffetta check /etc/staffetta/config.toml
 ```
 
 Every network needs `tls = true` (plain text is refused except to localhost) and
@@ -33,13 +33,13 @@ Back that directory up; it contains no chat.
 
 ## Run under systemd
 
-See the comments at the top of `contrib/ita-link.service`. The unit runs as an
+See the comments at the top of `contrib/staffetta.service`. The unit runs as an
 unprivileged user with no capabilities, a read-only system and a single writable
 state directory.
 
 ```sh
-sudo systemctl enable --now ita-link
-journalctl -u ita-link -f
+sudo systemctl enable --now staffetta
+journalctl -u staffetta -f
 ```
 
 Stopping the service (`systemctl stop`) saves the state first.

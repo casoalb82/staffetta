@@ -5,7 +5,7 @@
 //! chat. Bind it to localhost and put a reverse proxy in front for the internet.
 
 use anyhow::Result;
-use itl_core::engine::Overview;
+use staffetta_core::engine::Overview;
 use std::net::SocketAddr;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -65,13 +65,13 @@ pub fn render_html(o: &Overview) -> String {
     }
     format!(
         "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">\
-<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>Ita Link status</title>\
+<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>Staffetta status</title>\
 <style>body{{font:16px/1.5 system-ui,sans-serif;max-width:44rem;margin:2rem auto;padding:0 1rem;color:#1b1b1b;background:#fafafa}}\
 h1{{margin-bottom:.2rem}}.muted{{color:#666}}.link{{background:#fff;border:1px solid #ddd;border-radius:8px;padding:.5rem 1rem;margin:1rem 0}}\
 ul{{list-style:none;padding:0;margin:.3rem 0}}li{{padding:.15rem 0}}.net{{color:#555}}.mode{{font-size:.8rem;border-radius:4px;padding:0 .4rem}}\
 .live{{background:#d9f3dd}}.preview{{background:#fff3cd}}.off{{background:#eee}}\
 @media (prefers-color-scheme:dark){{body{{background:#161616;color:#e8e8e8}}.link{{background:#1f1f1f;border-color:#333}}.net,.muted{{color:#aaa}}.live{{background:#1e4d2b}}.preview{{background:#5a4a12}}.off{{background:#333}}}}\
-</style></head><body><h1>Ita Link</h1>\
+</style></head><body><h1>Staffetta</h1>\
 <p class=\"muted\">Channels linked across IRC networks. Only channels whose owners chose to be listed are shown. / Canali collegati tra reti IRC: compaiono solo quelli i cui owner lo hanno scelto.</p>\
 {rows}\
 <p class=\"muted\">{} links &middot; {} channels ({} live) &middot; {} lines relayed</p>\
@@ -141,7 +141,7 @@ pub async fn serve(listen: SocketAddr, shared: Shared) -> Result<SocketAddr> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use itl_core::engine::{ChanView, LinkView, Totals};
+    use staffetta_core::engine::{ChanView, LinkView, Totals};
 
     #[test]
     fn escapes_everything_dangerous() {

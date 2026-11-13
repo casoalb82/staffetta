@@ -1,7 +1,7 @@
 //! Configuration file (TOML).
 //!
 //! ```toml
-//! service_nick = "ItaLink"
+//! service_nick = "Staffetta"
 //! state_dir = "state"
 //!
 //! [[network]]
@@ -15,13 +15,13 @@
 //! ```
 
 use anyhow::{bail, Context, Result};
-use itl_core::engine::{EngineConfig, NetConfig, Transport};
-use itl_core::face::NickStyle;
-use itl_core::model::NetId;
-use itl_core::policy::Lang;
-use itl_net::conn::Target;
-use itl_net::NetSpec;
 use serde::Deserialize;
+use staffetta_core::engine::{EngineConfig, NetConfig, Transport};
+use staffetta_core::face::NickStyle;
+use staffetta_core::model::NetId;
+use staffetta_core::policy::Lang;
+use staffetta_net::conn::Target;
+use staffetta_net::NetSpec;
 use std::net::IpAddr;
 use std::path::{Path, PathBuf};
 
@@ -94,10 +94,10 @@ fn default_lang() -> String {
     "it".into()
 }
 fn default_nick() -> String {
-    "ItaLink".into()
+    "Staffetta".into()
 }
 fn default_realname() -> String {
-    "Ita Link channel relay service (relay bot, not a person)".into()
+    "Staffetta channel relay service (relay bot, not a person)".into()
 }
 fn default_state_dir() -> PathBuf {
     "state".into()
@@ -128,14 +128,14 @@ impl Config {
             if !seen.insert(n.id.to_ascii_lowercase()) {
                 bail!("network id '{}' appears twice", n.id);
             }
-            itl_net::conn::validate(&Target {
+            staffetta_net::conn::validate(&Target {
                 host: n.host.clone(),
                 port: n.port,
                 tls: n.tls,
                 source_ip: None,
             })?;
             if let Some(p) = &n.puppet_ipv6_pool {
-                itl_net::pool::parse_prefix(p)
+                staffetta_net::pool::parse_prefix(p)
                     .map_err(|e| anyhow::anyhow!("{}: puppet_ipv6_pool: {e}", n.id))?;
                 if n.puppet_source_ip.is_some() {
                     bail!(
@@ -209,7 +209,7 @@ impl Config {
                 puppet_pool: n
                     .puppet_ipv6_pool
                     .as_deref()
-                    .and_then(|p| itl_net::pool::parse_prefix(p).ok()),
+                    .and_then(|p| staffetta_net::pool::parse_prefix(p).ok()),
             })
             .collect()
     }
@@ -240,7 +240,7 @@ mod tests {
             "#,
         )
         .unwrap();
-        assert_eq!(c.service_nick, "ItaLink");
+        assert_eq!(c.service_nick, "Staffetta");
         assert!(c.networks[0].tls);
         assert_eq!(c.networks[0].max_puppets, 60);
     }

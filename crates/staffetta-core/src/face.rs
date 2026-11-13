@@ -135,7 +135,7 @@ pub fn make_face(
         nick,
         ident: ident_for(origin, user),
         realname: format!(
-            "{} on {} via Ita Link (relayed user)",
+            "{} on {} via Staffetta (relayed user)",
             user.nick, origin_label
         ),
     }

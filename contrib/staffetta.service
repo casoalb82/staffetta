@@ -1,13 +1,13 @@
-# systemd unit for Ita Link. Install as /etc/systemd/system/ita-link.service
+# systemd unit for Staffetta. Install as /etc/systemd/system/staffetta.service
 #
-#   sudo useradd --system --home /var/lib/ita-link --shell /usr/sbin/nologin italink
-#   sudo install -m 0755 target/release/ita-link /usr/local/bin/ita-link
-#   sudo install -d -o italink -g italink -m 0750 /etc/ita-link
-#   sudo install -m 0640 -o root -g italink config.toml /etc/ita-link/config.toml
+#   sudo useradd --system --home /var/lib/staffetta --shell /usr/sbin/nologin italink
+#   sudo install -m 0755 target/release/staffetta /usr/local/bin/staffetta
+#   sudo install -d -o italink -g italink -m 0750 /etc/staffetta
+#   sudo install -m 0640 -o root -g italink config.toml /etc/staffetta/config.toml
 #
-# In config.toml use:  state_dir = "/var/lib/ita-link"
+# In config.toml use:  state_dir = "/var/lib/staffetta"
 [Unit]
-Description=Ita Link - link IRC channels across networks
+Description=Staffetta - link IRC channels across networks
 After=network-online.target
 Wants=network-online.target
 
@@ -15,10 +15,10 @@ Wants=network-online.target
 Type=simple
 User=italink
 Group=italink
-ExecStart=/usr/local/bin/ita-link /etc/ita-link/config.toml
+ExecStart=/usr/local/bin/staffetta /etc/staffetta/config.toml
 Restart=on-failure
 RestartSec=10
-StateDirectory=ita-link
+StateDirectory=staffetta
 StateDirectoryMode=0750
 
 # Hardening: it only needs the network and its own state directory.

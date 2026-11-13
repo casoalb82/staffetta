@@ -1,10 +1,10 @@
 //! Behavioural scenarios for the relay engine, written the way an owner would
 //! describe them. No networking: events in, actions out.
 
-use itl_core::engine::*;
-use itl_core::model::*;
+use staffetta_core::engine::*;
+use staffetta_core::model::*;
 
-const SVC: &str = "ItaLink";
+const SVC: &str = "Staffetta";
 
 struct World {
     e: Engine,
@@ -170,11 +170,11 @@ fn a_link_needs_both_owners_and_starts_in_preview() {
         .any(|x| matches!(x, Action::Notice { text, .. } if text.contains("PREVIEW"))));
     assert_eq!(
         w.e.member(&a).unwrap().policy.mode,
-        itl_core::policy::Mode::Preview
+        staffetta_core::policy::Mode::Preview
     );
     assert_eq!(
         w.e.member(&b).unwrap().policy.mode,
-        itl_core::policy::Mode::Preview
+        staffetta_core::policy::Mode::Preview
     );
 
     // Preview: not one line crosses.
@@ -668,9 +668,9 @@ fn ident_is_the_same_for_the_same_account_across_nick_changes() {
     let a = chan("chatnet", "#italy");
     w.sync(&a, &[("opA", Role::Op)]);
     let u1 = user("mario").with_account("mario");
-    let i1 = itl_core::face::ident_for(&net("chatnet"), &u1);
+    let i1 = staffetta_core::face::ident_for(&net("chatnet"), &u1);
     let u2 = user("mario_away").with_account("mario");
-    assert_eq!(i1, itl_core::face::ident_for(&net("chatnet"), &u2));
+    assert_eq!(i1, staffetta_core::face::ident_for(&net("chatnet"), &u2));
 }
 
 // -------------------------------------------------------------- language ---
@@ -678,7 +678,7 @@ fn ident_is_the_same_for_the_same_account_across_nick_changes() {
 #[test]
 fn replies_follow_the_channel_language() {
     let mut w = World::new();
-    w.e.cfg.default_lang = itl_core::policy::Lang::It;
+    w.e.cfg.default_lang = staffetta_core::policy::Lang::It;
     let a = chan("chatnet", "#italy");
     let b = chan("azzurra", "#italia");
     w.sync(&a, &[("opA", Role::Op)]);
@@ -718,8 +718,8 @@ fn replies_follow_the_channel_language() {
 
 #[test]
 fn every_message_exists_in_both_languages() {
-    use itl_core::msg::Msg;
-    use itl_core::policy::Lang;
+    use staffetta_core::msg::Msg;
+    use staffetta_core::policy::Lang;
     let all = [
         Msg::NotInChannel {
             chan: "#c",

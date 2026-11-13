@@ -1,9 +1,9 @@
 use anyhow::Result;
-use ita_link::{config::Config, runner};
+use staffetta::{config::Config, runner};
 use std::path::PathBuf;
 
-const USAGE: &str = "ita-link <config.toml>        run the service\n\
-ita-link check <config.toml>  validate the configuration and exit";
+const USAGE: &str = "staffetta <config.toml>        run the service\n\
+staffetta check <config.toml>  validate the configuration and exit";
 
 #[tokio::main]
 async fn main() -> Result<()> {

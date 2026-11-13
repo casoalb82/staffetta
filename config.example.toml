@@ -1,7 +1,7 @@
-# Ita Link configuration. Copy to config.toml (which git ignores).
+# Staffetta configuration. Copy to config.toml (which git ignores).
 
-service_nick = "ItaLink"
-service_realname = "Ita Link channel relay service (relay bot, not a person)"
+service_nick = "Staffetta"
+service_realname = "Staffetta channel relay service (relay bot, not a person)"
 state_dir = "state"
 
 # Owners must be logged in to services to manage a link.

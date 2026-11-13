@@ -1,4 +1,4 @@
-//! Network side of Ita Link: one task per network keeps the service connection
+//! Network side of Staffetta: one task per network keeps the service connection
 //! and a connection per puppet, translating IRC lines into core events and core
 //! actions into IRC lines.
 

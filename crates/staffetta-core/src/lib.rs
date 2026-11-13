@@ -1,4 +1,4 @@
-//! Ita Link core: the link model, the owner's rules and the relay engine.
+//! Staffetta core: the link model, the owner's rules and the relay engine.
 //! No networking happens here - events go in, actions come out.
 
 pub mod command;

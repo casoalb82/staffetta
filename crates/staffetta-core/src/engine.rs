@@ -78,7 +78,7 @@ pub struct EngineConfig {
 impl Default for EngineConfig {
     fn default() -> Self {
         EngineConfig {
-            service_nick: "ItaLink".into(),
+            service_nick: "Staffetta".into(),
             nick_style: NickStyle::Pipe,
             networks: HashMap::new(),
             require_account_for_owner: false,
@@ -678,7 +678,7 @@ impl Engine {
         let as_puppet = SeenUser {
             nick: format!("{}|{}", user.nick, tag),
             ident: crate::face::ident_for(origin, user),
-            host: "puppet.itl".into(),
+            host: "puppet.staffetta".into(),
             account: user.account.clone(),
             is_bot: user.is_bot,
         };
@@ -781,7 +781,7 @@ impl Engine {
                     out.push(Action::PuppetQuit {
                         net: net.clone(),
                         uid: v,
-                        reason: "Ita Link: making room".into(),
+                        reason: "Staffetta: making room".into(),
                     });
                     self.drop_puppet(net, v);
                 }
@@ -886,7 +886,7 @@ impl Engine {
             {
                 self.puppet_join(now, &to.net, uid, &to, out);
             } else if !want && has {
-                self.puppet_part(&to.net, uid, &to.chan, "Ita Link: no longer shared", out);
+                self.puppet_part(&to.net, uid, &to.chan, "Staffetta: no longer shared", out);
             }
         }
         // Channels that are not in any link any more (UNLINK, dissolved room).
@@ -903,7 +903,7 @@ impl Engine {
             .collect();
         for k in sitting {
             if !self.shown(now, uid, &k) {
-                self.puppet_part(&k.net, uid, &k.chan, "Ita Link: no longer shared", out);
+                self.puppet_part(&k.net, uid, &k.chan, "Staffetta: no longer shared", out);
             }
         }
     }
@@ -925,7 +925,7 @@ impl Engine {
             out.push(Action::PuppetQuit {
                 net: n.clone(),
                 uid: u,
-                reason: "Ita Link: user gone".into(),
+                reason: "Staffetta: user gone".into(),
             });
             self.drop_puppet(&n, u);
         }
@@ -1270,7 +1270,7 @@ impl Engine {
             }
         }
         for (net, uid, chan) in parts {
-            self.puppet_part(&net, uid, &chan, "Ita Link: idle", out);
+            self.puppet_part(&net, uid, &chan, "Staffetta: idle", out);
         }
         // Old requests expire.
         let mut expired = Vec::new();

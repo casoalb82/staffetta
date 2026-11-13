@@ -1,6 +1,6 @@
 # Owner's guide
 
-You run an IRC channel. This page tells you exactly what Ita Link can and cannot do
+You run an IRC channel. This page tells you exactly what Staffetta can and cannot do
 to it. Everything below is something *you* decide.
 
 ## 1. Let the service in
@@ -8,7 +8,7 @@ to it. Everything below is something *you* decide.
 The service never joins a channel by itself. A channel operator invites it:
 
 ```
-/invite ItaLink #yourchannel
+/invite Staffetta #yourchannel
 ```
 
 It only sits there and listens. Nothing is shared yet.
@@ -18,7 +18,7 @@ It only sits there and listens. Nothing is shared yet.
 Both channels must have invited the service. Then, as an operator of your channel:
 
 ```
-/msg ItaLink LINK #yourchannel othernet #theirchannel
+/msg Staffetta LINK #yourchannel othernet #theirchannel
 ```
 
 Their operators get a notice with the exact command to accept. Until they do,
@@ -27,15 +27,15 @@ nothing happens. When they accept, **both channels start in PREVIEW**.
 ## 3. Look before you leap
 
 ```
-/msg ItaLink STATUS #yourchannel
-/msg ItaLink SAMPLE #yourchannel
+/msg Staffetta STATUS #yourchannel
+/msg Staffetta SAMPLE #yourchannel
 ```
 
 `SAMPLE` shows the last lines your channel *would* have received if it were live.
 Nothing was sent anywhere. When you like what you see:
 
 ```
-/msg ItaLink LIVE #yourchannel
+/msg Staffetta LIVE #yourchannel
 ```
 
 Chat flows only while **both** sides are LIVE. You can step back at any time:
@@ -80,7 +80,7 @@ Lines starting with `!` or `.` are bot commands and are never relayed.
 
 > **Do not ban the host.** Every relayed person on your channel comes from the
 > service's own address, so `*!*@host` (what many bots and clients build from a
-> nick) removes **all** of them and Ita Link itself. Use `BLOCK`, or the ident
+> nick) removes **all** of them and Staffetta itself. Use `BLOCK`, or the ident
 > mask below.
 
 Ban a remote person as you would anyone, using the mask your IRC client shows for
@@ -92,14 +92,14 @@ the puppet:
 
 The part after `cha-` is derived from who the person is on their own network (their
 services account when they have one), so the same person always gets the same
-ident, and one ban never catches anybody else. When a puppet is **banned**, Ita Link
+ident, and one ban never catches anybody else. When a puppet is **banned**, Staffetta
 remembers it as a permanent block. A **kick** keeps the person out for ten minutes.
 
 You can also block by the person's real identity on the origin network:
 
 ```
-/msg ItaLink BLOCK #yourchannel *!*@*.badisp.example
-/msg ItaLink BLOCK #yourchannel account:somebody
+/msg Staffetta BLOCK #yourchannel *!*@*.badisp.example
+/msg Staffetta BLOCK #yourchannel account:somebody
 ```
 
 ## Common questions

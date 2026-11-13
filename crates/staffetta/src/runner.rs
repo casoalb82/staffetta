@@ -3,10 +3,10 @@
 
 use crate::config::Config;
 use anyhow::{Context, Result};
-use itl_core::engine::*;
-use itl_core::model::{fold, NetId, SayKind};
-use itl_net::{run_network, Inbound, ToNet};
 use serde::{Deserialize, Serialize};
+use staffetta_core::engine::*;
+use staffetta_core::model::{fold, NetId, SayKind};
+use staffetta_net::{run_network, Inbound, ToNet};
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::io::Write as _;
 use std::path::{Path, PathBuf};
@@ -125,8 +125,8 @@ pub async fn run(cfg: Config, mut shutdown: mpsc::UnboundedReceiver<()>) -> Resu
 
     let mut tick = tokio::time::interval(std::time::Duration::from_secs(60));
     tick.tick().await;
-    // ITL_DEBUG=1 logs every event (including chat text): for trials only.
-    let debug = std::env::var_os("ITL_DEBUG").is_some();
+    // STAFFETTA_DEBUG=1 logs every event (including chat text): for trials only.
+    let debug = std::env::var_os("STAFFETTA_DEBUG").is_some();
     loop {
         let mut dirty = false;
         let (acts, persist_now) = tokio::select! {
@@ -145,7 +145,7 @@ pub async fn run(cfg: Config, mut shutdown: mpsc::UnboundedReceiver<()>) -> Resu
                     Inbound::Invited { net, chan, by } => {
                         log(&format!("[{net}] invited into {chan} by {by}"));
                         persisted.invited.entry(net.0.clone()).or_default().insert(chan.clone());
-                        let rec = AuditRecord { at: now_ms(), chan: Some(itl_core::model::ChanKey::new(&net.0, &chan)), actor: by, what: "invited the service".into() };
+                        let rec = AuditRecord { at: now_ms(), chan: Some(staffetta_core::model::ChanKey::new(&net.0, &chan)), actor: by, what: "invited the service".into() };
                         store.audit(&rec);
                         dirty = true;
                         (Vec::new(), true)

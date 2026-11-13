@@ -1,0 +1,14 @@
+[package]
+name = "staffetta-net"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]
+staffetta-proto = { path = "../staffetta-proto" }
+staffetta-core = { path = "../staffetta-core" }
+tokio-rustls.workspace = true
+rustls-native-certs.workspace = true
+tokio.workspace = true
+anyhow.workspace = true
