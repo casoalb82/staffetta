@@ -72,6 +72,9 @@ pub struct NetworkCfg {
     pub max_nick: usize,
     /// Local address puppets connect from (optional).
     pub puppet_source_ip: Option<IpAddr>,
+    /// IPv6 prefix, e.g. "2001:db8:1:2::/64": every puppet connects from its
+    /// own address inside it (beats per-IP connection limits).
+    pub puppet_ipv6_pool: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, Deserialize, Default)]
@@ -122,6 +125,12 @@ impl Config {
                 bail!("network id '{}' appears twice", n.id);
             }
             itl_net::conn::validate(&Target { host: n.host.clone(), port: n.port, tls: n.tls, source_ip: None })?;
+            if let Some(p) = &n.puppet_ipv6_pool {
+                itl_net::pool::parse_prefix(p).map_err(|e| anyhow::anyhow!("{}: puppet_ipv6_pool: {e}", n.id))?;
+                if n.puppet_source_ip.is_some() {
+                    bail!("{}: use either puppet_source_ip or puppet_ipv6_pool, not both", n.id);
+                }
+            }
             if n.max_nick < 9 {
                 bail!("{}: max_nick must be at least 9", n.id);
             }
@@ -176,6 +185,7 @@ impl Config {
                 service_nick: self.service_nick.clone(),
                 service_realname: self.service_realname.clone(),
                 puppet_source: n.puppet_source_ip,
+                puppet_pool: n.puppet_ipv6_pool.as_deref().and_then(|p| itl_net::pool::parse_prefix(p).ok()),
             })
             .collect()
     }
@@ -236,5 +246,24 @@ mod tests {
         assert!(parse("[[network]]\nid='a'\nhost='h'\nport=1\n").is_err());
         let dup = "[[network]]\nid='a'\nhost='h'\nport=1\n[[network]]\nid='A'\nhost='h'\nport=1\n";
         assert!(parse(dup).is_err());
+    }
+}
+
+#[cfg(test)]
+mod pool_tests {
+    use super::*;
+
+    #[test]
+    fn pool_is_validated() {
+        let ok = "[[network]]\nid='a'\nhost='h'\nport=1\npuppet_ipv6_pool='2001:db8:1:2::/64'\n[[network]]\nid='b'\nhost='h'\nport=1\n";
+        let c: Config = toml::from_str(ok).unwrap();
+        c.validate().unwrap();
+        assert!(c.net_specs()[0].puppet_pool.is_some());
+        let bad = ok.replace("/64", "/8");
+        let c: Config = toml::from_str(&bad).unwrap();
+        assert!(c.validate().is_err());
+        let both = ok.replace("puppet_ipv6_pool", "puppet_source_ip='::1'\npuppet_ipv6_pool");
+        let c: Config = toml::from_str(&both).unwrap();
+        assert!(c.validate().is_err());
     }
 }

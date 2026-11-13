@@ -22,6 +22,9 @@ pub struct NetSpec {
     pub service_realname: String,
     /// Source address for puppet connections (the service uses the default).
     pub puppet_source: Option<IpAddr>,
+    /// IPv6 prefix puppets connect from, one address per person (overrides
+    /// `puppet_source`).
+    pub puppet_pool: Option<(std::net::Ipv6Addr, u8)>,
 }
 
 impl NetSpec {
@@ -249,7 +252,11 @@ impl Session {
             ToNet::SpawnPuppet { uid, face } => {
                 let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
                 self.puppets.insert(uid, tx);
-                let t = self.spec.target(self.spec.puppet_source);
+                let source = match self.spec.puppet_pool {
+                    Some((prefix, len)) => Some(IpAddr::V6(crate::pool::pool_addr(prefix, len, uid))),
+                    None => self.spec.puppet_source,
+                };
+                let t = self.spec.target(source);
                 tokio::spawn(run_puppet(t, self.spec.id.clone(), uid, face, rx, self.events.clone()));
             }
             ToNet::PuppetJoin { uid, chan } => self.to_puppet(uid, PuppetCmd::Join(chan)),

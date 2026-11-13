@@ -3,6 +3,7 @@
 //! actions into IRC lines.
 
 pub mod conn;
+pub mod pool;
 mod network;
 mod puppet;
 

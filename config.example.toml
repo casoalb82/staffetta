@@ -22,6 +22,9 @@ tls = true                 # plain text is refused except to localhost
 transport = "puppets"      # or "service-bot" (one labelled relay bot, no extra connections)
 max_puppets = 60
 max_nick = 30
+# Beat per-IP connection limits: every puppet connects from its own IPv6 address
+# inside this routed prefix (see docs/INSTALL.md for the OS setup).
+# puppet_ipv6_pool = "2001:db8:1:2::/64"
 
 [[network]]
 id = "exampleb"
