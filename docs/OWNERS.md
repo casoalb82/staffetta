@@ -51,7 +51,7 @@ Chat flows only while **both** sides are LIVE. You can step back at any time:
 | `PAUSE` / `RESUME <#you>` | Stop and restart everything, keeping the link. |
 | `UNLINK <#you>` | Leave. Your people disappear from the others at once. |
 | `SET <#you> <setting> <value>` | Change a rule (below). |
-| `BLOCK` / `UNBLOCK <#you> <mask>` | Never relay, nor show, matching people. |
+| `BLOCK` / `UNBLOCK <#you> <mask or puppet nick>` | Never relay, nor show, matching people. A puppet's nick (`BLOCK #you alice|cha`) blocks that person for good, whatever nick they use. |
 | `MUTE` / `UNMUTE <#you> <net> <#them>` | Stop hearing one linked channel. |
 | `STATUS`, `SAMPLE`, `AUDIT <#you>` | See what is going on and who changed what. |
 | `HELP`, `HELP SET` | Built-in help. |
@@ -77,6 +77,11 @@ too (`require_account_for_owner = true` in the configuration).
 Lines starting with `!` or `.` are bot commands and are never relayed.
 
 ## Blocking and banning
+
+> **Do not ban the host.** Every relayed person on your channel comes from the
+> service's own address, so `*!*@host` (what many bots and clients build from a
+> nick) removes **all** of them and Ita Link itself. Use `BLOCK`, or the ident
+> mask below.
 
 Ban a remote person as you would anyone, using the mask your IRC client shows for
 the puppet:

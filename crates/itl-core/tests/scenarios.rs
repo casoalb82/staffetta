@@ -836,3 +836,22 @@ fn a_refused_line_is_told_to_the_speaker_once() {
     assert!(told[0].2.contains("#italia"), "{}", told[0].2);
     assert!(replies(&refuse(&mut w)).is_empty(), "only once");
 }
+
+#[test]
+fn blocking_a_puppet_nick_blocks_the_person_by_ident() {
+    let (mut w, a, b) = World::linked_live();
+    let acts = w.say(&a, "alice", "ciao");
+    let face = acts
+        .iter()
+        .find_map(|x| match x {
+            Action::SpawnPuppet { face, net, .. } if net == &b.net => Some(face.clone()),
+            _ => None,
+        })
+        .expect("puppet");
+    let r = w.cmd("azzurra", "opB", "BLOCK #italia alice|cha");
+    let txt = replies(&r).join(" ");
+    assert!(txt.contains(&format!("*!*{}@*", face.ident)), "{txt}");
+    // She cannot get through any more, even under another nick.
+    w.say(&a, "alice", "ancora");
+    assert!(says(&w.say(&a, "alice", "e ancora")).is_empty());
+}

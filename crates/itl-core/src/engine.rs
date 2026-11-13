@@ -1160,6 +1160,16 @@ impl Engine {
         });
     }
 
+    /// `*!*ident@*` for the person behind puppet `nick` on `net`, if any.
+    fn puppet_ident_mask(&self, net: &NetId, nick: &str) -> Option<String> {
+        if nick.contains(['!', '@', '*', '?', ':']) {
+            return None;
+        }
+        let uid = self.puppet_nicks.get(&(net.clone(), fold(nick)))?;
+        let p = self.puppets.get(&(net.clone(), *uid))?;
+        Some(format!("*!*{}@*", p.face.ident))
+    }
+
     fn on_puppet_lost(
         &mut self,
         now: u64,
@@ -1645,7 +1655,12 @@ impl Engine {
             Block { chan, mask } => {
                 let k = self.auth(net, nick, &chan)?;
                 let l = self.lang_of(&k);
-                let mask = normalise_mask(&mask).map_err(|_| Msg::BadMask.render(l))?;
+                // A bare nick that belongs to one of our puppets here means "that
+                // person": block their stable ident, which survives nick changes.
+                let mask = self
+                    .puppet_ident_mask(&k.net, mask.trim())
+                    .map_or_else(|| normalise_mask(&mask), Ok)
+                    .map_err(|_| Msg::BadMask.render(l))?;
                 let m = self.member_mut(&k)?;
                 if m.policy.block.len() >= 200 {
                     return Err(Msg::BlockFull.render(l));
