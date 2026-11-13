@@ -504,3 +504,92 @@ fn ident_is_the_same_for_the_same_account_across_nick_changes() {
     let u2 = user("mario_away").with_account("mario");
     assert_eq!(i1, itl_core::face::ident_for(&net("chatnet"), &u2));
 }
+
+// -------------------------------------------------------------- language ---
+
+#[test]
+fn replies_follow_the_channel_language() {
+    let mut w = World::new();
+    w.e.cfg.default_lang = itl_core::policy::Lang::It;
+    let a = chan("chatnet", "#italy");
+    let b = chan("azzurra", "#italia");
+    w.sync(&a, &[("opA", Role::Op)]);
+    w.sync(&b, &[("opB", Role::Op)]);
+    // Not linked yet: the default language applies.
+    let r = replies(&w.cmd("chatnet", "opA", "STATUS #italy"));
+    assert!(r[0].contains("non è collegato"), "{r:?}");
+    w.cmd("chatnet", "opA", "LINK #italy azzurra #italia");
+    let acts = w.cmd("azzurra", "opB", "ACCEPT #italia chatnet #italy");
+    assert!(acts.iter().any(|x| matches!(x, Action::Notice { text, .. } if text.contains("ora è collegato"))), "{acts:?}");
+    // Errors are Italian too.
+    let r = replies(&w.cmd("chatnet", "nobody", "STATUS #italy"));
+    assert!(r[0].contains("Non ti vedo"), "{r:?}");
+    let r = replies(&w.cmd("chatnet", "opA", "HELP"));
+    assert!(r.iter().any(|l| l.contains("chiedi un link")), "{r:?}");
+    // One channel can pick English without affecting the other.
+    let r = replies(&w.cmd("azzurra", "opB", "SET #italia lang en"));
+    assert!(r[0].contains("lang = en"), "{r:?}");
+    let r = replies(&w.cmd("azzurra", "opB", "LIVE #italia"));
+    assert!(r[0].contains("is now LIVE"), "{r:?}");
+    let r = replies(&w.cmd("chatnet", "opA", "LIVE #italy"));
+    assert!(r[0].contains("ora è LIVE"), "{r:?}");
+    let r = replies(&w.cmd("chatnet", "opA", "SET #italy lang fr"));
+    assert!(r[0].contains("use it or en"), "{r:?}");
+    let r = replies(&w.cmd("chatnet", "opA", "STATUS #italy"));
+    assert!(r.iter().any(|l| l.contains("collegato con") && l.contains("live")), "{r:?}");
+    assert!(r.iter().any(|l| l.contains("righe in entrata")), "{r:?}");
+}
+
+#[test]
+fn every_message_exists_in_both_languages() {
+    use itl_core::msg::Msg;
+    use itl_core::policy::Lang;
+    let all = [
+        Msg::NotInChannel { chan: "#c", svc: "S" },
+        Msg::NotSeen { chan: "#c" },
+        Msg::NotOp { chan: "#c" },
+        Msg::NeedAccount,
+        Msg::NotLinkedYet { chan: "#c" },
+        Msg::SameNetwork,
+        Msg::TheirServiceMissing { chan: "#c", net: "n", svc: "S" },
+        Msg::AlreadyLinked,
+        Msg::BothInLinks,
+        Msg::OnePerNet { net: "n" },
+        Msg::AskNotice { mine_chan: "#a", mine_net: "n", other_chan: "#b", svc: "S" },
+        Msg::RequestSent { other: "#b" },
+        Msg::NoPending { mine: "#a", net: "n", chan: "#b" },
+        Msg::Accepted,
+        Msg::NoSuchRequest,
+        Msg::RequestRemoved,
+        Msg::Admitted { svc: "S", chan: "#a" },
+        Msg::AdmittedOther { chan: "#a", label: "L" },
+        Msg::LeftNotice { chan: "#a", net: "n" },
+        Msg::Unlinked { chan: "#a" },
+        Msg::NotLinked { chan: "#a" },
+        Msg::Paused { chan: "#a" },
+        Msg::Resumed { chan: "#a" },
+        Msg::ModeLive { chan: "#a" },
+        Msg::ModePreview { chan: "#a" },
+        Msg::ModeOff { chan: "#a" },
+        Msg::SetOk { chan: "#a", key: "k", value: "v" },
+        Msg::Blocked { chan: "#a", mask: "m" },
+        Msg::Unblocked { chan: "#a", mask: "m" },
+        Msg::NotBlocked { mask: "m" },
+        Msg::BlockFull,
+        Msg::BadMask,
+        Msg::Muted { chan: "#a", other: "o" },
+        Msg::Unmuted { chan: "#a", other: "o" },
+        Msg::SampleNone,
+        Msg::SampleHeader { n: 3, chan: "#a" },
+        Msg::AuditNone,
+        Msg::NetDown { label: "L" },
+    ];
+    for m in &all {
+        let (en, it) = (m.render(Lang::En), m.render(Lang::It));
+        assert!(!en.is_empty() && !it.is_empty());
+        // Translated messages that carry names must still carry them.
+        if !matches!(m, Msg::Accepted | Msg::SetOk { .. }) {
+            assert_ne!(en, it, "message not translated: {en}");
+        }
+    }
+}

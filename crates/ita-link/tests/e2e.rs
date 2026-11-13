@@ -15,6 +15,7 @@ fn cfg(dir: &std::path::Path, a: &TestNet, b: &TestNet) -> Config {
     let toml = format!(
         r#"
         service_nick = "ItaLink"
+        default_lang = "en"
         state_dir = "{}"
         [[network]]
         id = "chatnet"
@@ -121,13 +122,21 @@ async fn two_networks_one_conversation() {
     assert!(bob.silent_for(|l| l.contains("sono ancora qui?"), 1200).await, "banned person must stay out");
     assert!(!net_b.is_in("#italia", "alice|cha"));
 
+    // The language is per channel: #italia switches to Italian.
+    op_b.say("ItaLink", "SET #italia lang it").await;
+    op_b.say("ItaLink", "STATUS #italia").await;
+    assert!(op_b.wait_for(|l| l.contains("righe in entrata"), 5).await.is_some(), "Italian status");
+
     // The owner can see it in the audit trail.
     op_b.say("ItaLink", "AUDIT #italia 10").await;
-    assert!(op_b.wait_for(|l| l.contains("banned") || l.contains("blocked"), 5).await.is_some());
+    assert!(
+        op_b.wait_for(|l| l.contains("NOTICE") && l.contains("was kicked: kept out"), 5).await.is_some(),
+        "the audit trail records the kick"
+    );
 
     // Instant stop.
     op_b.say("ItaLink", "UNLINK #italia").await;
-    op_b.wait_for(|l| l.contains("no longer linked"), 5).await.expect("unlink confirmed");
+    op_b.wait_for(|l| l.contains("non è più collegato"), 5).await.expect("unlink confirmed");
     bob.say("#italia", "silenzio?").await;
     assert!(alice.silent_for(|l| l.contains("silenzio?"), 800).await);
 

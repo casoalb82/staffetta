@@ -17,6 +17,7 @@
 use anyhow::{bail, Context, Result};
 use itl_core::engine::{EngineConfig, NetConfig, Transport};
 use itl_core::face::NickStyle;
+use itl_core::policy::Lang;
 use itl_core::model::NetId;
 use itl_net::conn::Target;
 use itl_net::NetSpec;
@@ -38,6 +39,10 @@ pub struct Config {
     pub relay_bots: bool,
     #[serde(default)]
     pub nick_style: NickStyleCfg,
+    /// Language links start with: "it" (default) or "en". Owners can change
+    /// it per channel with `SET #channel lang en`.
+    #[serde(default = "default_lang")]
+    pub default_lang: String,
     #[serde(default, rename = "network")]
     pub networks: Vec<NetworkCfg>,
 }
@@ -80,6 +85,9 @@ pub enum TransportCfg {
 fn yes() -> bool {
     true
 }
+fn default_lang() -> String {
+    "it".into()
+}
 fn default_nick() -> String {
     "ItaLink".into()
 }
@@ -118,6 +126,9 @@ impl Config {
                 bail!("{}: max_nick must be at least 9", n.id);
             }
         }
+        if !["it", "en"].contains(&self.default_lang.to_ascii_lowercase().as_str()) {
+            bail!("default_lang must be \"it\" or \"en\"");
+        }
         if self.service_nick.is_empty() || self.service_nick.contains(' ') {
             bail!("service_nick is not a valid nick");
         }
@@ -134,6 +145,7 @@ impl Config {
             },
             require_account_for_owner: self.require_account_for_owner,
             relay_bots: self.relay_bots,
+            default_lang: if self.default_lang.eq_ignore_ascii_case("en") { Lang::En } else { Lang::It },
             ..Default::default()
         };
         for n in &self.networks {

@@ -6,6 +6,14 @@
 
 use serde::{Deserialize, Serialize};
 
+/// Language the service uses when it talks to this channel's operators.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+pub enum Lang {
+    #[default]
+    En,
+    It,
+}
+
 /// What this channel does with the link right now.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Mode {
@@ -40,6 +48,9 @@ pub struct RateLimit {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Policy {
     pub mode: Mode,
+    /// Language of the service's replies and notices for this channel.
+    #[serde(default)]
+    pub lang: Lang,
     /// Lines said here are sent to the other channels.
     pub share_out: bool,
     /// Lines from the other channels are shown here.
@@ -67,6 +78,7 @@ pub struct Policy {
 impl Default for Policy {
     fn default() -> Self {
         Policy {
+            lang: Lang::En,
             mode: Mode::Preview, // a new link never goes live by itself
             share_out: true,
             accept_in: true,
@@ -114,16 +126,33 @@ where
 
 impl Policy {
     /// All settable keys with a one-line help, for the `HELP SET` reply.
-    pub const KEYS: &'static [(&'static str, &'static str)] = &[
-        ("share-out", "on|off - send this channel's chat to the linked channels"),
-        ("accept-in", "on|off - show the linked channels' chat here"),
-        ("presence", "full | lazy [idle-minutes] - how remote people appear in the user list"),
-        ("require-account", "on|off - only show people who are logged in to services"),
-        ("min-presence", "seconds (0-86400) someone must be here before their lines leave"),
-        ("rate", "<lines>/<seconds>, e.g. 5/10 - per-person flood limit"),
-        ("max-line", "characters (40-450) per relayed line"),
-        ("strip-formatting", "on|off - remove colours/bold from relayed lines"),
-    ];
+    pub fn keys(lang: Lang) -> Vec<(&'static str, &'static str)> {
+        if lang == Lang::It {
+            vec![
+                ("share-out", "on|off - invia la chat di questo canale ai canali collegati"),
+                ("accept-in", "on|off - mostra qui la chat dei canali collegati"),
+                ("presence", "full | lazy [minuti] - come appaiono le persone remote nella lista utenti"),
+                ("require-account", "on|off - mostra solo chi è identificato ai servizi"),
+                ("min-presence", "secondi (0-86400) che uno deve essere qui prima che le sue righe escano"),
+                ("rate", "<righe>/<secondi>, es. 5/10 - limite anti-flood per persona"),
+                ("max-line", "caratteri (40-450) per riga inoltrata"),
+                ("strip-formatting", "on|off - toglie colori e grassetto dalle righe inoltrate"),
+                ("lang", "it | en - lingua delle risposte del servizio per questo canale"),
+            ]
+        } else {
+            vec![
+                ("share-out", "on|off - send this channel's chat to the linked channels"),
+                ("accept-in", "on|off - show the linked channels' chat here"),
+                ("presence", "full | lazy [idle-minutes] - how remote people appear in the user list"),
+                ("require-account", "on|off - only show people who are logged in to services"),
+                ("min-presence", "seconds (0-86400) someone must be here before their lines leave"),
+                ("rate", "<lines>/<seconds>, e.g. 5/10 - per-person flood limit"),
+                ("max-line", "characters (40-450) per relayed line"),
+                ("strip-formatting", "on|off - remove colours/bold from relayed lines"),
+                ("lang", "it | en - language of the service's replies for this channel"),
+            ]
+        }
+    }
 
     /// Apply one `SET <key> <value...>` change.
     pub fn set(&mut self, key: &str, value: &str) -> Result<(), SetError> {
@@ -134,6 +163,13 @@ impl Policy {
             "accept-in" => self.accept_in = parse_bool(&key_l, value)?,
             "require-account" => self.require_account_in = parse_bool(&key_l, value)?,
             "strip-formatting" => self.strip_formatting = parse_bool(&key_l, value)?,
+            "lang" => {
+                self.lang = match value.to_ascii_lowercase().as_str() {
+                    "it" | "italiano" => Lang::It,
+                    "en" | "english" => Lang::En,
+                    _ => return Err(SetError::BadValue { key: key_l, why: "use it or en".into() }),
+                }
+            }
             "min-presence" => self.min_presence_secs = parse_num(&key_l, value, 0, 86_400)?,
             "max-line" => self.max_line = parse_num::<usize>(&key_l, value, 40, 450)?,
             "presence" => {
@@ -171,7 +207,8 @@ impl Policy {
     }
 
     /// One short line per setting, for `STATUS`.
-    pub fn describe(&self) -> Vec<String> {
+    pub fn describe(&self, lang: Lang) -> Vec<String> {
+        let it = lang == Lang::It;
         let presence = match self.presence {
             Presence::Full => "full".to_string(),
             Presence::Lazy { idle_secs } => format!("lazy ({} min)", idle_secs / 60),
@@ -192,10 +229,13 @@ impl Policy {
                 self.max_line
             ),
             format!(
-                "strip-formatting {} | blocked {} | muted {}",
+                "strip-formatting {} | {} {} | {} {} | lang {}",
                 onoff(self.strip_formatting),
+                if it { "bloccati" } else { "blocked" },
                 self.block.len(),
-                self.muted.len()
+                if it { "silenziati" } else { "muted" },
+                self.muted.len(),
+                if self.lang == Lang::It { "it" } else { "en" }
             ),
         ]
     }
@@ -313,14 +353,18 @@ mod tests {
     #[test]
     fn every_documented_key_is_settable() {
         let mut p = Policy::default();
-        for (k, _) in Policy::KEYS {
-            let v = match *k {
+        for (k, _) in Policy::keys(Lang::En) {
+            let v = match k {
                 "presence" => "full",
+                "lang" => "it",
                 "rate" => "5/10",
                 "min-presence" | "max-line" => "100",
                 _ => "on",
             };
             p.set(k, v).unwrap_or_else(|e| panic!("{k}: {e}"));
+        }
+        for (k, _) in Policy::keys(Lang::It) {
+            assert!(Policy::keys(Lang::En).iter().any(|(e, _)| e == &k), "{k} missing in English");
         }
     }
 

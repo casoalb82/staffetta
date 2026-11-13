@@ -10,6 +10,8 @@ require_account_for_owner = false
 relay_bots = false
 # How the origin network is added to a puppet's nick: pipe | bracket | underscore
 nick_style = "pipe"
+# Language the service uses with channel operators: it | en (per channel: SET #chan lang en)
+default_lang = "it"
 
 [[network]]
 id = "examplea"

@@ -78,9 +78,12 @@ per-channel policy, flood control, blocks and mutes, kick/ban memory, pause/unli
 state and audit log on disk, reconnect after a network drop, restart recovery,
 puppet nick collisions, puppet cap per network.
 
+Replies and notices to channel operators are available in Italian and English
+(per channel: `SET #chan lang it|en`, default set in the configuration).
+
 Not done yet: services-account tracking on networks without `extended-join`
-(WHOX), Italian-language replies, IPv6 source-address pool for puppets, a
-read-only web status page, packaging (systemd unit). Real-network trials need
+(WHOX), IPv6 source-address pool for puppets, a read-only web status page,
+packaging (systemd unit). Real-network trials need
 the agreement of the channel owners *and* the network's staff, and that is
 deliberately the last step.
 

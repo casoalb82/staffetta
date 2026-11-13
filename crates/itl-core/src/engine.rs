@@ -18,6 +18,7 @@
 
 use crate::command::{self, Command, ModeWord};
 use crate::face::{make_face, Face, NickStyle};
+use crate::msg::Msg;
 use crate::model::*;
 use crate::policy::*;
 use serde::{Deserialize, Serialize};
@@ -65,6 +66,8 @@ pub struct EngineConfig {
     pub require_account_for_owner: bool,
     /// Relay users flagged as bots (off: they are never relayed).
     pub relay_bots: bool,
+    /// Language new links start with (owners change it with `SET lang`).
+    pub default_lang: Lang,
 }
 
 impl Default for EngineConfig {
@@ -75,6 +78,7 @@ impl Default for EngineConfig {
             networks: HashMap::new(),
             require_account_for_owner: false,
             relay_bots: false,
+            default_lang: Lang::En,
         }
     }
 }
@@ -311,6 +315,15 @@ impl Engine {
             .get(&key)
             .and_then(|uid| self.puppets.get(&(net.clone(), *uid)))
             .is_some_and(|p| p.chans.contains_key(&fold(chan)))
+    }
+
+    /// Language to use when talking about `k`.
+    fn lang_of(&self, k: &ChanKey) -> Lang {
+        self.member(k).map(|m| m.policy.lang).unwrap_or(self.cfg.default_lang)
+    }
+
+    fn new_policy(&self) -> Policy {
+        Policy { lang: self.cfg.default_lang, ..Policy::default() }
     }
 
     fn net_cfg(&self, net: &NetId) -> NetConfig {
@@ -694,7 +707,7 @@ impl Engine {
                     if &peer.net != net && self.chans.contains_key(peer) && told.insert(peer.clone()) {
                         out.push(Action::Notice {
                             chan: peer.clone(),
-                            text: format!("{} is disconnected from the link right now; its people will be back when it returns.", label),
+                            text: Msg::NetDown { label: &label }.render(self.lang_of(peer)),
                         });
                     }
                 }
@@ -918,22 +931,20 @@ impl Engine {
     /// Check the caller may act for `chan`: service present, caller is an op.
     fn auth(&self, net: &NetId, nick: &str, chan: &str) -> Result<ChanKey, String> {
         let key = ChanKey::new(&net.0, chan);
+        let l = self.lang_of(&key);
         let Some(cs) = self.chans.get(&key) else {
-            return Err(format!(
-                "I am not in {chan}. A channel operator must /INVITE {} into it first.",
-                self.cfg.service_nick
-            ));
+            return Err(Msg::NotInChannel { chan, svc: &self.cfg.service_nick }.render(l));
         };
         let Some(cu) = cs.users.get(&fold(nick)) else {
-            return Err(format!("I do not see you in {chan}."));
+            return Err(Msg::NotSeen { chan }.render(l));
         };
         if cu.role < Role::Op {
-            return Err(format!("Only channel operators of {chan} can do this."));
+            return Err(Msg::NotOp { chan }.render(l));
         }
         if self.cfg.require_account_for_owner
             && self.urec.get(&cu.uid).is_some_and(|r| r.seen.account.is_none())
         {
-            return Err("You need to be logged in to services to manage a link.".into());
+            return Err(Msg::NeedAccount.render(l));
         }
         Ok(key)
     }
@@ -953,17 +964,18 @@ impl Engine {
     }
 
     fn member_mut(&mut self, key: &ChanKey) -> Result<&mut Member, String> {
+        let l = self.lang_of(key);
         self.rooms
             .values_mut()
             .find_map(|r| r.members.get_mut(key))
-            .ok_or_else(|| format!("{} is not linked to anything yet. Use LINK first.", key.chan))
+            .ok_or_else(|| Msg::NotLinkedYet { chan: &key.chan }.render(l))
     }
 
     fn run_command(&mut self, now: u64, net: &NetId, nick: &str, cmd: Command, out: &mut Vec<Action>) -> Result<(), String> {
         use Command::*;
         match cmd {
             Help(topic) => {
-                for l in help_text(topic.as_deref(), &self.cfg.service_nick) {
+                for l in crate::msg::help_lines(topic.as_deref(), &self.cfg.service_nick, self.cfg.default_lang) {
                     Self::reply(out, net, nick, l);
                 }
                 Ok(())
@@ -982,26 +994,30 @@ impl Engine {
             }
             Unlink { chan } => {
                 let k = self.auth(net, nick, &chan)?;
+                let _l = self.lang_of(&k);
                 self.do_unlink(now, nick, k, out)
             }
             Pause { chan } => {
                 let k = self.auth(net, nick, &chan)?;
+                let l = self.lang_of(&k);
                 self.member_mut(&k)?.paused = true;
                 self.note(out, now, Some(k.clone()), nick, "paused the link");
                 self.reconcile_all(now, out);
-                Self::reply(out, net, nick, format!("{chan}: link paused. Nothing flows until RESUME."));
+                Self::reply(out, net, nick, Msg::Paused { chan: &chan }.render(l));
                 Ok(())
             }
             Resume { chan } => {
                 let k = self.auth(net, nick, &chan)?;
+                let l = self.lang_of(&k);
                 self.member_mut(&k)?.paused = false;
                 self.note(out, now, Some(k.clone()), nick, "resumed the link");
                 self.reconcile_all(now, out);
-                Self::reply(out, net, nick, format!("{chan}: link resumed."));
+                Self::reply(out, net, nick, Msg::Resumed { chan: &chan }.render(l));
                 Ok(())
             }
             SetMode { chan, mode } => {
                 let k = self.auth(net, nick, &chan)?;
+                let l = self.lang_of(&k);
                 let m = match mode {
                     ModeWord::Off => Mode::Off,
                     ModeWord::Preview => Mode::Preview,
@@ -1011,52 +1027,58 @@ impl Engine {
                 self.note(out, now, Some(k.clone()), nick, &format!("mode set to {m:?}"));
                 self.reconcile_all(now, out);
                 let msg = match m {
-                    Mode::Live => format!("{chan} is now LIVE. Chat flows to and from every linked channel that is LIVE too."),
-                    Mode::Preview => format!("{chan} is in PREVIEW: nothing is sent or shown. SAMPLE shows what you would have seen."),
-                    Mode::Off => format!("{chan} is OFF: linked on paper only."),
-                };
+                    Mode::Live => Msg::ModeLive { chan: &chan },
+                    Mode::Preview => Msg::ModePreview { chan: &chan },
+                    Mode::Off => Msg::ModeOff { chan: &chan },
+                }
+                .render(l);
                 Self::reply(out, net, nick, msg);
                 Ok(())
             }
             Set { chan, key, value } => {
                 let k = self.auth(net, nick, &chan)?;
+                let _l = self.lang_of(&k);
                 self.member_mut(&k)?.policy.set(&key, &value).map_err(|e| e.to_string())?;
-                self.note(out, now, Some(k), nick, &format!("set {key} = {value}"));
+                self.note(out, now, Some(k.clone()), nick, &format!("set {key} = {value}"));
                 self.reconcile_all(now, out);
-                Self::reply(out, net, nick, format!("{chan}: {key} = {value}"));
+                let l = self.lang_of(&k);
+                Self::reply(out, net, nick, Msg::SetOk { chan: &chan, key: &key, value: &value }.render(l));
                 Ok(())
             }
             Block { chan, mask } => {
                 let k = self.auth(net, nick, &chan)?;
-                let mask = normalise_mask(&mask)?;
+                let l = self.lang_of(&k);
+                let mask = normalise_mask(&mask).map_err(|_| Msg::BadMask.render(l))?;
                 let m = self.member_mut(&k)?;
                 if m.policy.block.len() >= 200 {
-                    return Err("The block list is full (200 entries).".into());
+                    return Err(Msg::BadMask.render(l)).or_else(|_: String| Err::<(), String>(Msg::BlockFull.render(l)));
                 }
                 if !m.policy.block.contains(&mask) {
                     m.policy.block.push(mask.clone());
                 }
                 self.note(out, now, Some(k), nick, &format!("blocked {mask}"));
                 self.reconcile_all(now, out);
-                Self::reply(out, net, nick, format!("{chan}: {mask} is blocked."));
+                Self::reply(out, net, nick, Msg::Blocked { chan: &chan, mask: &mask }.render(l));
                 Ok(())
             }
             Unblock { chan, mask } => {
                 let k = self.auth(net, nick, &chan)?;
-                let mask = normalise_mask(&mask)?;
+                let l = self.lang_of(&k);
+                let mask = normalise_mask(&mask).map_err(|_| Msg::BadMask.render(l))?;
                 let m = self.member_mut(&k)?;
                 let before = m.policy.block.len();
                 m.policy.block.retain(|b| b != &mask);
                 if m.policy.block.len() == before {
-                    return Err(format!("{mask} is not on the block list."));
+                    return Err(Msg::NotBlocked { mask: &mask }.render(l));
                 }
                 self.note(out, now, Some(k), nick, &format!("unblocked {mask}"));
                 self.reconcile_all(now, out);
-                Self::reply(out, net, nick, format!("{chan}: {mask} is no longer blocked."));
+                Self::reply(out, net, nick, Msg::Unblocked { chan: &chan, mask: &mask }.render(l));
                 Ok(())
             }
             Mute { chan, other } => {
                 let k = self.auth(net, nick, &chan)?;
+                let l = self.lang_of(&k);
                 let m = self.member_mut(&k)?;
                 let o = other.to_string();
                 if !m.policy.muted.contains(&o) {
@@ -1064,33 +1086,36 @@ impl Engine {
                 }
                 self.note(out, now, Some(k), nick, &format!("muted {o}"));
                 self.reconcile_all(now, out);
-                Self::reply(out, net, nick, format!("{chan}: you no longer hear {o}. They still hear you unless they mute you too."));
+                Self::reply(out, net, nick, Msg::Muted { chan: &chan, other: &o }.render(l));
                 Ok(())
             }
             Unmute { chan, other } => {
                 let k = self.auth(net, nick, &chan)?;
+                let l = self.lang_of(&k);
                 let o = other.to_string();
                 self.member_mut(&k)?.policy.muted.retain(|x| x != &o);
                 self.note(out, now, Some(k), nick, &format!("unmuted {o}"));
                 self.reconcile_all(now, out);
-                Self::reply(out, net, nick, format!("{chan}: {o} unmuted."));
+                Self::reply(out, net, nick, Msg::Unmuted { chan: &chan, other: &o }.render(l));
                 Ok(())
             }
             Status { chan } => {
                 let k = self.auth(net, nick, &chan)?;
-                for l in self.status_lines(&k) {
-                    Self::reply(out, net, nick, l);
+                let l = self.lang_of(&k);
+                for line in self.status_lines(&k, l) {
+                    Self::reply(out, net, nick, line);
                 }
                 Ok(())
             }
             Sample { chan } => {
                 let k = self.auth(net, nick, &chan)?;
+                let l = self.lang_of(&k);
                 match self.samples.get(&k).filter(|q| !q.is_empty()) {
-                    None => Self::reply(out, net, nick, "Nothing to show yet: no linked channel that is LIVE has said anything."),
+                    None => Self::reply(out, net, nick, Msg::SampleNone.render(l)),
                     Some(q) => {
-                        Self::reply(out, net, nick, format!("Last {} lines {chan} would have shown (nothing was actually sent):", q.len()));
-                        for l in q.iter() {
-                            Self::reply(out, net, nick, l.clone());
+                        Self::reply(out, net, nick, Msg::SampleHeader { n: q.len(), chan: &chan }.render(l));
+                        for line in q.iter() {
+                            Self::reply(out, net, nick, line.clone());
                         }
                     }
                 }
@@ -1098,9 +1123,10 @@ impl Engine {
             }
             Audit { chan, count } => {
                 let k = self.auth(net, nick, &chan)?;
+                let l = self.lang_of(&k);
                 let recs: Vec<&AuditRecord> = self.audit.iter().filter(|r| r.chan.as_ref() == Some(&k)).collect();
                 if recs.is_empty() {
-                    Self::reply(out, net, nick, "No audit entries for this channel yet.");
+                    Self::reply(out, net, nick, Msg::AuditNone.render(l));
                 }
                 for r in recs.iter().rev().take(count).rev() {
                     Self::reply(out, net, nick, format!("[{}s] {}: {}", r.at / 1000, r.actor, r.what));
@@ -1110,76 +1136,95 @@ impl Engine {
         }
     }
 
-    fn status_lines(&self, k: &ChanKey) -> Vec<String> {
+    fn status_lines(&self, k: &ChanKey, lang: Lang) -> Vec<String> {
+        let it = lang == Lang::It;
         let mut v = Vec::new();
         let Some(rid) = self.room_of(k) else {
-            v.push(format!("{} is not linked to anything. LINK <#chan> <network> <#theirs> starts a link.", k.chan));
+            v.push(if it {
+                format!("{} non è collegato a niente. LINK <#canale> <rete> <#loro> avvia un link.", k.chan)
+            } else {
+                format!("{} is not linked to anything. LINK <#chan> <network> <#theirs> starts a link.", k.chan)
+            });
             return v;
         };
         let room = &self.rooms[&rid];
         let m = &room.members[k];
-        let mode = match m.policy.mode {
+        let word = |mode: Mode| match mode {
             Mode::Off => "OFF",
             Mode::Preview => "PREVIEW",
             Mode::Live => "LIVE",
         };
-        v.push(format!("{} is {}{}.", k.chan, mode, if m.paused { " (paused)" } else { "" }));
+        let paused = if it { " (in pausa)" } else { " (paused)" };
+        v.push(format!("{} {} {}{}.", k.chan, if it { "è" } else { "is" }, word(m.policy.mode), if m.paused { paused } else { "" }));
         for (c, mm) in &room.members {
             if c == k {
                 continue;
             }
-            let state = match mm.policy.mode {
-                Mode::Off => "off",
-                Mode::Preview => "preview",
-                Mode::Live => "live",
+            let here = if self.chans.contains_key(c) {
+                ""
+            } else if it {
+                ", servizio assente"
+            } else {
+                ", service not present"
             };
-            let here = if self.chans.contains_key(c) { "" } else { ", service not present" };
-            v.push(format!("  linked with {} ({}{}{})", c, state, if mm.paused { ", paused" } else { "" }, here));
+            let pz = if mm.paused { if it { ", in pausa" } else { ", paused" } } else { "" };
+            v.push(format!(
+                "  {} {} ({}{}{})",
+                if it { "collegato con" } else { "linked with" },
+                c,
+                word(mm.policy.mode).to_ascii_lowercase(),
+                pz,
+                here
+            ));
         }
         for q in &room.requests {
-            let waiting: Vec<String> = room
-                .members
-                .keys()
-                .filter(|x| !q.approvals.contains(*x))
-                .map(|x| x.to_string())
-                .collect();
-            let mut w = Vec::new();
+            let mut w: Vec<String> = Vec::new();
             if !q.newcomer_ok {
-                w.push(format!("{} itself", q.newcomer));
+                w.push(if it { format!("{} stesso", q.newcomer) } else { format!("{} itself", q.newcomer) });
             }
-            w.extend(waiting.into_iter().map(|x| x.to_string()));
-            v.push(format!("  pending: {} wants in; waiting for {}", q.newcomer, w.join(", ")));
+            w.extend(room.members.keys().filter(|x| !q.approvals.contains(*x)).map(|x| x.to_string()));
+            v.push(if it {
+                format!("  in attesa: {} vuole entrare; aspetto {}", q.newcomer, w.join(", "))
+            } else {
+                format!("  pending: {} wants in; waiting for {}", q.newcomer, w.join(", "))
+            });
         }
-        v.extend(m.policy.describe().into_iter().map(|l| format!("  {l}")));
+        v.extend(m.policy.describe(lang).into_iter().map(|l| format!("  {l}")));
         let s = self.stats(k);
-        v.push(format!(
-            "  lines in {} | out {} | dropped by rate {} / by filters {} | preview would-in {} would-out {}",
-            s.in_lines, s.out_lines, s.dropped_rate, s.dropped_filter, s.would_in, s.would_out
-        ));
+        v.push(if it {
+            format!(
+                "  righe in entrata {} | in uscita {} | scartate per flood {} / per filtri {} | anteprima: avrebbe mostrato {}, avrebbe inviato {}",
+                s.in_lines, s.out_lines, s.dropped_rate, s.dropped_filter, s.would_in, s.would_out
+            )
+        } else {
+            format!(
+                "  lines in {} | out {} | dropped by rate {} / by filters {} | preview would-in {} would-out {}",
+                s.in_lines, s.out_lines, s.dropped_rate, s.dropped_filter, s.would_in, s.would_out
+            )
+        });
         v
     }
 
     fn do_link(&mut self, now: u64, nick: &str, mine: ChanKey, other: ChanKey, out: &mut Vec<Action>) -> Result<(), String> {
+        let l = self.lang_of(&mine);
         if mine.net == other.net {
-            return Err("Both channels are on the same network - they can already talk to each other.".into());
+            return Err(Msg::SameNetwork.render(l));
         }
         if !self.chans.contains_key(&other) {
-            return Err(format!(
-                "I am not in {} on {}. Its operators must /INVITE {} there first.",
-                other.chan, other.net, self.cfg.service_nick
-            ));
+            return Err(Msg::TheirServiceMissing { chan: &other.chan, net: &other.net.0, svc: &self.cfg.service_nick }.render(l));
         }
         let (rm, ro) = (self.room_of(&mine), self.room_of(&other));
         let (rid, newcomer, newcomer_ok, requester_is_member) = match (rm, ro) {
-            (Some(a), Some(b)) if a == b => return Err("These two channels are already linked.".into()),
-            (Some(_), Some(_)) => return Err("Both channels already belong to a link. UNLINK one of them first.".into()),
+            (Some(a), Some(b)) if a == b => return Err(Msg::AlreadyLinked.render(l)),
+            (Some(_), Some(_)) => return Err(Msg::BothInLinks.render(l)),
             (None, Some(r)) => (r, mine.clone(), true, false),
             (Some(r), None) => (r, other.clone(), false, true),
             (None, None) => {
                 let r = self.next_room;
                 self.next_room += 1;
                 self.rooms.insert(r, Room::default());
-                self.rooms.get_mut(&r).unwrap().members.insert(mine.clone(), Member { policy: Policy::default(), paused: false });
+                let pol = self.new_policy();
+                self.rooms.get_mut(&r).unwrap().members.insert(mine.clone(), Member { policy: pol, paused: false });
                 self.note(out, now, Some(mine.clone()), nick, "created a new link");
                 (r, other.clone(), false, true)
             }
@@ -1187,7 +1232,7 @@ impl Engine {
         {
             let room = self.rooms.get_mut(&rid).unwrap();
             if room.members.keys().any(|m| m.net == newcomer.net) {
-                return Err(format!("That link already has a channel on {}. One channel per network.", newcomer.net));
+                return Err(Msg::OnePerNet { net: &newcomer.net.0 }.render(l));
             }
             if let Some(q) = room.requests.iter_mut().find(|q| q.newcomer == newcomer) {
                 if requester_is_member {
@@ -1206,16 +1251,11 @@ impl Engine {
         self.note(out, now, Some(mine.clone()), nick, &format!("asked to link with {other}"));
         out.push(Action::Notice {
             chan: other.clone(),
-            text: format!(
-                "{} on {} asks to link with this channel. Operators here: /msg {} ACCEPT {} {} {}  (or DENY).",
-                mine.chan, mine.net, self.cfg.service_nick, other.chan, mine.net, mine.chan
-            ),
+            text: Msg::AskNotice { mine_chan: &mine.chan, mine_net: &mine.net.0, other_chan: &other.chan, svc: &self.cfg.service_nick }
+                .render(self.lang_of(&other)),
         });
         self.try_admit(now, rid, out);
-        let reply = format!(
-            "Request sent. {} must accept before anything happens; every link starts in PREVIEW, nothing is shared until each side says LIVE.",
-            other.chan
-        );
+        let reply = Msg::RequestSent { other: &other.chan }.render(l);
         out.push(Action::Reply { net: mine.net.clone(), nick: nick.to_string(), text: reply });
         Ok(())
     }
@@ -1241,11 +1281,11 @@ impl Engine {
             }
         }
         let Some(rid) = done else {
-            return Err(format!("No pending request between {} and {} {}.", mine.chan, other.net, other.chan));
+            return Err(Msg::NoPending { mine: &mine.chan, net: &other.net.0, chan: &other.chan }.render(self.lang_of(&mine)));
         };
         self.note(out, now, Some(mine.clone()), nick, &format!("accepted the link with {other}"));
         self.try_admit(now, rid, out);
-        out.push(Action::Reply { net: mine.net.clone(), nick: nick.to_string(), text: "Accepted.".into() });
+        out.push(Action::Reply { net: mine.net.clone(), nick: nick.to_string(), text: Msg::Accepted.render(self.lang_of(&mine)) });
         Ok(())
     }
 
@@ -1261,11 +1301,11 @@ impl Engine {
             removed |= room.requests.len() != before;
         }
         if !removed {
-            return Err("No such pending request.".into());
+            return Err(Msg::NoSuchRequest.render(self.lang_of(&mine)));
         }
         self.note(out, now, Some(mine.clone()), nick, &format!("denied/withdrew the link with {other}"));
         self.drop_lonely_rooms();
-        out.push(Action::Reply { net: mine.net.clone(), nick: nick.to_string(), text: "Request removed.".into() });
+        out.push(Action::Reply { net: mine.net.clone(), nick: nick.to_string(), text: Msg::RequestRemoved.render(self.lang_of(&mine)) });
         Ok(())
     }
 
@@ -1277,6 +1317,7 @@ impl Engine {
         // First change the room, then talk about it: no borrow is held while
         // we write notices and audit entries.
         let mut admitted: Vec<(Request, Vec<ChanKey>)> = Vec::new();
+        let pol = self.new_policy();
         {
             let Some(room) = self.rooms.get_mut(&rid) else { return };
             let ready: Vec<usize> = room
@@ -1288,7 +1329,7 @@ impl Engine {
                 .collect();
             for i in ready.into_iter().rev() {
                 let q = room.requests.remove(i);
-                room.members.insert(q.newcomer.clone(), Member { policy: Policy::default(), paused: false });
+                room.members.insert(q.newcomer.clone(), Member { policy: pol.clone(), paused: false });
                 admitted.push((q, room.members.keys().cloned().collect()));
             }
         }
@@ -1302,16 +1343,11 @@ impl Engine {
                 .unwrap_or_else(|| q.newcomer.net.0.clone());
             for m in &members {
                 if self.chans.contains_key(m) {
+                    let lm = self.lang_of(m);
                     let txt = if m == &q.newcomer {
-                        format!(
-                            "This channel is now linked (PREVIEW mode: nothing is shared yet). Operators: /msg {} STATUS {}  |  LIVE {}  when you are ready.",
-                            self.cfg.service_nick, m.chan, m.chan
-                        )
+                        Msg::Admitted { svc: &self.cfg.service_nick, chan: &m.chan }.render(lm)
                     } else {
-                        format!(
-                            "{} on {} joined this link (it starts in PREVIEW; nothing is shared until its operators say LIVE).",
-                            q.newcomer.chan, label
-                        )
+                        Msg::AdmittedOther { chan: &q.newcomer.chan, label: &label }.render(lm)
                     };
                     out.push(Action::Notice { chan: m.clone(), text: txt });
                 }
@@ -1321,7 +1357,8 @@ impl Engine {
     }
 
     fn do_unlink(&mut self, now: u64, nick: &str, k: ChanKey, out: &mut Vec<Action>) -> Result<(), String> {
-        let Some(rid) = self.room_of(&k) else { return Err(format!("{} is not linked.", k.chan)) };
+        let l = self.lang_of(&k);
+        let Some(rid) = self.room_of(&k) else { return Err(Msg::NotLinked { chan: &k.chan }.render(l)) };
         let others: Vec<ChanKey> = {
             let room = self.rooms.get_mut(&rid).unwrap();
             room.members.remove(&k);
@@ -1333,13 +1370,14 @@ impl Engine {
         };
         for o in others {
             if self.chans.contains_key(&o) {
-                out.push(Action::Notice { chan: o, text: format!("{} on {} left this link.", k.chan, k.net) });
+                let lo = self.lang_of(&o);
+                out.push(Action::Notice { chan: o, text: Msg::LeftNotice { chan: &k.chan, net: &k.net.0 }.render(lo) });
             }
         }
         self.drop_lonely_rooms();
         self.note(out, now, Some(k.clone()), nick, "left the link");
         self.reconcile_all(now, out);
-        out.push(Action::Reply { net: k.net.clone(), nick: nick.to_string(), text: format!("{} is no longer linked. Nothing of yours is shared any more.", k.chan) });
+        out.push(Action::Reply { net: k.net.clone(), nick: nick.to_string(), text: Msg::Unlinked { chan: &k.chan }.render(l) });
         Ok(())
     }
 }
@@ -1353,27 +1391,4 @@ fn normalise_mask(m: &str) -> Result<String, String> {
         return Ok(m.to_string());
     }
     Ok(format!("{m}!*@*"))
-}
-
-fn help_text(topic: Option<&str>, svc: &str) -> Vec<String> {
-    match topic {
-        Some("SET") => {
-            let mut v = vec!["SET <#channel> <setting> <value> - your channel, your rules:".to_string()];
-            v.extend(Policy::KEYS.iter().map(|(k, h)| format!("  {k}: {h}")));
-            v
-        }
-        _ => vec![
-            format!("{svc}: link your channel with channels on other networks. You stay in control."),
-            "First /INVITE me into your channel. Only channel operators can use these commands.".into(),
-            "  LINK <#you> <network> <#them>    ask to link (they must ACCEPT; both start in PREVIEW)".into(),
-            "  ACCEPT / DENY <#you> <network> <#them>".into(),
-            "  PREVIEW | LIVE | OFF <#you>      nothing flows until BOTH sides are LIVE".into(),
-            "  SAMPLE <#you>                    see what preview would have shown".into(),
-            "  SET <#you> <setting> <value>     HELP SET lists them".into(),
-            "  BLOCK / UNBLOCK <#you> <mask>    mask: nick!ident@host or account:name".into(),
-            "  MUTE / UNMUTE <#you> <network> <#them>".into(),
-            "  PAUSE / RESUME / UNLINK <#you>   instant stop, any time".into(),
-            "  STATUS / AUDIT <#you>            what is going on, who changed what".into(),
-        ],
-    }
 }

@@ -71,6 +71,7 @@ too (`require_account_for_owner = true` in the configuration).
 | `rate` | 5/10 | Lines per person per seconds. |
 | `max-line` | 350 | Longest relayed line. |
 | `strip-formatting` | on | Remove colours, bold and other control codes. |
+| `lang` | `it` | Language of the service's replies for your channel: `it` or `en`. |
 
 Lines starting with `!` or `.` are bot commands and are never relayed.
 
