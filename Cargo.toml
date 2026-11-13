@@ -1,0 +1,19 @@
+[workspace]
+resolver = "2"
+members = ["crates/*"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+authors = ["abcX"]
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/casoalb82/ita-link"
+
+[workspace.dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+anyhow = "1"
+tokio = { version = "1", features = ["net", "rt-multi-thread", "macros", "io-util", "time", "sync", "signal", "fs"] }
+tokio-rustls = "0.26"
+rustls-native-certs = "0.8"
