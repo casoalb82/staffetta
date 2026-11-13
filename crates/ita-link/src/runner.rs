@@ -81,6 +81,11 @@ pub async fn run(cfg: Config, mut shutdown: mpsc::UnboundedReceiver<()>) -> Resu
     let mut persisted = store.load()?;
     let mut engine = Engine::restore(cfg.engine_config(), std::mem::take(&mut persisted.engine));
 
+    let shared: crate::status::Shared = std::sync::Arc::new(std::sync::Mutex::new(engine.overview()));
+    if let Some(l) = &cfg.status_listen {
+        let addr = crate::status::serve(l.parse()?, shared.clone()).await?;
+        log(&format!("status page on http://{addr}/"));
+    }
     let (in_tx, mut in_rx) = mpsc::unbounded_channel::<Inbound>();
     let mut nets: HashMap<NetId, mpsc::UnboundedSender<ToNet>> = HashMap::new();
     for spec in cfg.net_specs() {
@@ -142,6 +147,9 @@ pub async fn run(cfg: Config, mut shutdown: mpsc::UnboundedReceiver<()>) -> Resu
         let mut changed = persist_now || dirty;
         for a in acts {
             changed |= dispatch(&nets, &store, a);
+        }
+        if let Ok(mut g) = shared.lock() {
+            *g = engine.overview();
         }
         if changed {
             let p = Persisted { engine: engine.snapshot(), invited: persisted.invited.clone() };

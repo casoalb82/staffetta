@@ -235,6 +235,38 @@ pub struct Stats {
     pub dropped_filter: u64,
 }
 
+/// What the public status page may show. No people, no chat: only channels
+/// whose owners opted in (`SET #chan public on`) and aggregate numbers.
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+pub struct Overview {
+    pub links: Vec<LinkView>,
+    pub totals: Totals,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+pub struct LinkView {
+    pub channels: Vec<ChanView>,
+    /// Channels of this link that are not listed (owners did not opt in).
+    pub hidden: usize,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ChanView {
+    pub network: String,
+    pub name: String,
+    pub mode: String,
+    pub paused: bool,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+pub struct Totals {
+    pub links: usize,
+    pub channels: usize,
+    pub live_channels: usize,
+    pub puppets: usize,
+    pub lines_relayed: u64,
+}
+
 pub struct Engine {
     pub cfg: EngineConfig,
     rooms: BTreeMap<u64, Room>,
@@ -326,6 +358,42 @@ impl Engine {
 
     fn new_policy(&self) -> Policy {
         Policy { lang: self.cfg.default_lang, ..Policy::default() }
+    }
+
+    /// Public, privacy-safe summary for the status page.
+    pub fn overview(&self) -> Overview {
+        let mut o = Overview::default();
+        for room in self.rooms.values().filter(|r| r.members.len() >= 2) {
+            let mut link = LinkView::default();
+            for (k, m) in &room.members {
+                o.totals.channels += 1;
+                if m.policy.mode == Mode::Live && !m.paused {
+                    o.totals.live_channels += 1;
+                }
+                o.totals.lines_relayed += self.stats.get(k).map(|s| s.in_lines).unwrap_or(0);
+                if m.policy.public {
+                    link.channels.push(ChanView {
+                        network: self.net_cfg(&k.net).label,
+                        name: k.chan.clone(),
+                        mode: match m.policy.mode {
+                            Mode::Off => "off",
+                            Mode::Preview => "preview",
+                            Mode::Live => "live",
+                        }
+                        .into(),
+                        paused: m.paused,
+                    });
+                } else {
+                    link.hidden += 1;
+                }
+            }
+            o.totals.links += 1;
+            if !link.channels.is_empty() {
+                o.links.push(link);
+            }
+        }
+        o.totals.puppets = self.puppets.len();
+        o
     }
 
     fn net_cfg(&self, net: &NetId) -> NetConfig {

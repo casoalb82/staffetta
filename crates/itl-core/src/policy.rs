@@ -51,6 +51,9 @@ pub struct Policy {
     /// Language of the service's replies and notices for this channel.
     #[serde(default)]
     pub lang: Lang,
+    /// List this channel on the public status page (opt-in, default off).
+    #[serde(default)]
+    pub public: bool,
     /// Lines said here are sent to the other channels.
     pub share_out: bool,
     /// Lines from the other channels are shown here.
@@ -79,6 +82,7 @@ impl Default for Policy {
     fn default() -> Self {
         Policy {
             lang: Lang::En,
+            public: false,
             mode: Mode::Preview, // a new link never goes live by itself
             share_out: true,
             accept_in: true,
@@ -138,6 +142,7 @@ impl Policy {
                 ("max-line", "caratteri (40-450) per riga inoltrata"),
                 ("strip-formatting", "on|off - toglie colori e grassetto dalle righe inoltrate"),
                 ("lang", "it | en - lingua delle risposte del servizio per questo canale"),
+                ("public", "on|off - mostra questo canale nella pagina pubblica di stato (solo nome e modalità)"),
             ]
         } else {
             vec![
@@ -150,6 +155,7 @@ impl Policy {
                 ("max-line", "characters (40-450) per relayed line"),
                 ("strip-formatting", "on|off - remove colours/bold from relayed lines"),
                 ("lang", "it | en - language of the service's replies for this channel"),
+                ("public", "on|off - list this channel on the public status page (name and mode only)"),
             ]
         }
     }
@@ -163,6 +169,7 @@ impl Policy {
             "accept-in" => self.accept_in = parse_bool(&key_l, value)?,
             "require-account" => self.require_account_in = parse_bool(&key_l, value)?,
             "strip-formatting" => self.strip_formatting = parse_bool(&key_l, value)?,
+            "public" => self.public = parse_bool(&key_l, value)?,
             "lang" => {
                 self.lang = match value.to_ascii_lowercase().as_str() {
                     "it" | "italiano" => Lang::It,

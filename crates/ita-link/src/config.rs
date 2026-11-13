@@ -39,6 +39,8 @@ pub struct Config {
     pub relay_bots: bool,
     #[serde(default)]
     pub nick_style: NickStyleCfg,
+    /// Serve the read-only status page here, e.g. "127.0.0.1:8088" (off when unset).
+    pub status_listen: Option<String>,
     /// Language links start with: "it" (default) or "en". Owners can change
     /// it per channel with `SET #channel lang en`.
     #[serde(default = "default_lang")]
@@ -134,6 +136,9 @@ impl Config {
             if n.max_nick < 9 {
                 bail!("{}: max_nick must be at least 9", n.id);
             }
+        }
+        if let Some(l) = &self.status_listen {
+            l.parse::<std::net::SocketAddr>().map_err(|_| anyhow::anyhow!("status_listen must look like 127.0.0.1:8088"))?;
         }
         if !["it", "en"].contains(&self.default_lang.to_ascii_lowercase().as_str()) {
             bail!("default_lang must be \"it\" or \"en\"");

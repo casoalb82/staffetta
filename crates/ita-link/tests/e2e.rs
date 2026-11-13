@@ -254,3 +254,75 @@ async fn accounts_anchor_identity_and_gate_entry() {
     let _ = tokio::time::timeout(Duration::from_secs(5), svc).await;
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+async fn http_get(port: u16, path: &str) -> String {
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    let mut s = tokio::net::TcpStream::connect(("127.0.0.1", port)).await.unwrap();
+    s.write_all(format!("GET {path} HTTP/1.1\r\nHost: x\r\n\r\n").as_bytes()).await.unwrap();
+    let mut out = String::new();
+    let _ = tokio::time::timeout(Duration::from_secs(5), s.read_to_string(&mut out)).await;
+    out
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn status_page_lists_only_what_owners_made_public() {
+    let net_a = TestNet::start("chatnet.test").await;
+    let net_b = TestNet::start("azzurra.test").await;
+    let dir = tmpdir("status");
+    let port = {
+        let l = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        l.local_addr().unwrap().port()
+    };
+    let mut c = cfg(&dir, &net_a, &net_b);
+    c.status_listen = Some(format!("127.0.0.1:{port}"));
+    let (stop_tx, stop_rx) = mpsc::unbounded_channel();
+    let svc = tokio::spawn(runner::run(c, stop_rx));
+    assert!(until(10, || net_a.has_user("ItaLink") && net_b.has_user("ItaLink")).await);
+
+    let mut op_a = Client::connect(&net_a, "opA").await;
+    let mut alice = Client::connect(&net_a, "alice").await;
+    op_a.join("#italy").await;
+    alice.join("#italy").await;
+    let mut op_b = Client::connect(&net_b, "opB").await;
+    op_b.join("#segreto").await;
+    op_a.send("INVITE ItaLink #italy").await;
+    op_b.send("INVITE ItaLink #segreto").await;
+    assert!(until(10, || net_a.is_in("#italy", "ItaLink") && net_b.is_in("#segreto", "ItaLink")).await);
+    tokio::time::sleep(Duration::from_millis(500)).await;
+    op_a.say("ItaLink", "LINK #italy azzurra #segreto").await;
+    op_b.wait_for(|l| l.contains("ACCEPT"), 5).await.unwrap();
+    op_b.say("ItaLink", "ACCEPT #segreto chatnet #italy").await;
+    tokio::time::sleep(Duration::from_millis(300)).await;
+
+    // Nobody opted in: the page names no channel at all.
+    let json = http_get(port, "/status.json").await;
+    assert!(json.starts_with("HTTP/1.1 200"), "{json}");
+    assert!(!json.contains("#italy") && !json.contains("#segreto") && !json.contains("alice"), "{json}");
+    assert!(json.contains("\"links\":1"), "aggregate numbers are there: {json}");
+
+    // Only #italy's owner opts in.
+    op_a.say("ItaLink", "SET #italy public on").await;
+    tokio::time::sleep(Duration::from_millis(300)).await;
+    let json = http_get(port, "/status.json").await;
+    assert!(json.contains("#italy"), "{json}");
+    assert!(!json.contains("#segreto") && !json.contains("alice") && !json.contains("opA"), "{json}");
+    let html = http_get(port, "/").await;
+    assert!(html.contains("text/html") && html.contains("#italy") && !html.contains("#segreto"));
+    assert!(html.contains("not listed"), "the hidden channel is counted, not named");
+
+    // Read-only and strict.
+    assert!(http_get(port, "/nope").await.starts_with("HTTP/1.1 404"));
+    let post = {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        let mut s = tokio::net::TcpStream::connect(("127.0.0.1", port)).await.unwrap();
+        s.write_all(b"POST / HTTP/1.1\r\n\r\n").await.unwrap();
+        let mut o = String::new();
+        let _ = tokio::time::timeout(Duration::from_secs(5), s.read_to_string(&mut o)).await;
+        o
+    };
+    assert!(post.starts_with("HTTP/1.1 405"));
+
+    stop_tx.send(()).unwrap();
+    let _ = tokio::time::timeout(Duration::from_secs(5), svc).await;
+    let _ = std::fs::remove_dir_all(&dir);
+}
