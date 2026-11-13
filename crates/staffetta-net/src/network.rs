@@ -606,7 +606,17 @@ impl Session {
                         });
                     }
                 }
-                'h' | 'a' | 'q' | 'b' | 'e' | 'I' | 'k' => {
+                'b' => {
+                    let Some(mask) = args.next() else { break };
+                    if !plus {
+                        let key = self.key(&chan);
+                        self.emit(Event::BanLifted {
+                            chan: key,
+                            mask: mask.clone(),
+                        });
+                    }
+                }
+                'h' | 'a' | 'q' | 'e' | 'I' | 'k' => {
                     args.next();
                 }
                 'l' if plus => {

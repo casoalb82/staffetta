@@ -184,6 +184,12 @@ pub enum Event {
         nick: String,
         role: Role,
     },
+    /// A ban was removed in `chan`. If it matches a block we made when that ban
+    /// was set, the block goes too: unbanning on IRC means "let them back".
+    BanLifted {
+        chan: ChanKey,
+        mask: String,
+    },
     /// A person logged in to / out of services (account-notify).
     AccountChange {
         net: NetId,
@@ -535,6 +541,28 @@ impl Engine {
                     .and_then(|c| c.users.get_mut(&fold(&nick)))
                 {
                     cu.role = role;
+                }
+            }
+            Event::BanLifted { chan, mask } => {
+                let mut lifted = false;
+                if let Some(m) = self
+                    .rooms
+                    .values_mut()
+                    .find_map(|r| r.members.get_mut(&chan))
+                {
+                    let before = m.policy.block.len();
+                    m.policy.block.retain(|b| fold(b) != fold(&mask));
+                    lifted = m.policy.block.len() != before;
+                }
+                if lifted {
+                    self.note(
+                        &mut out,
+                        now,
+                        Some(chan),
+                        "unban",
+                        &format!("ban {mask} removed: unblocked"),
+                    );
+                    self.reconcile_all(now, &mut out);
                 }
             }
             Event::AccountChange { net, nick, account } => {

@@ -855,3 +855,31 @@ fn blocking_a_puppet_nick_blocks_the_person_by_ident() {
     w.say(&a, "alice", "ancora");
     assert!(says(&w.say(&a, "alice", "e ancora")).is_empty());
 }
+
+#[test]
+fn lifting_a_ban_on_irc_lifts_the_block_it_made() {
+    let (mut w, a, b) = World::linked_live();
+    let acts = w.say(&a, "alice", "ciao");
+    let face = acts
+        .iter()
+        .find_map(|x| match x {
+            Action::SpawnPuppet { face, net, .. } if net == &b.net => Some(face.clone()),
+            _ => None,
+        })
+        .expect("puppet");
+    // The operator of #italia bans her puppet: she is blocked for good.
+    w.ev(Event::PuppetLost {
+        net: b.net.clone(),
+        nick: face.nick.clone(),
+        chan: Some(b.chan.clone()),
+        why: LostWhy::Banned,
+    });
+    assert!(says(&w.say(&a, "alice", "ancora")).is_empty(), "blocked");
+    // Taking the ban off again lets her back in.
+    let mask = format!("*!*{}@*", face.ident);
+    w.ev(Event::BanLifted {
+        chan: b.clone(),
+        mask,
+    });
+    assert_eq!(says(&w.say(&a, "alice", "eccomi")).len(), 1, "unblocked");
+}
