@@ -134,6 +134,7 @@ async fn two_networks_one_conversation() {
     assert!(net_b
         .user_realname("alice|cha")
         .unwrap()
+        .to_lowercase()
         .contains("relayed"));
 
     bob.say("#italia", "ciao da Azzurra").await;

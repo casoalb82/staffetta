@@ -100,6 +100,12 @@ pub fn ident_for(origin: &NetId, user: &SeenUser) -> String {
     format!("{}-{:05x}", net_tag(origin), (h & 0xf_ffff) as u32)
 }
 
+/// Most servers cut the realname at about 50 characters, so keep it short.
+fn realname_for(origin_label: &str) -> String {
+    let label: String = origin_label.chars().take(24).collect();
+    format!("Relayed from {label} (Staffetta)")
+}
+
 /// Build the face of `user` (who lives on `origin`) for use on a remote
 /// network whose nick limit is `max_nick`. `taken` tells whether a candidate
 /// nick is already used on that remote network.
@@ -134,10 +140,7 @@ pub fn make_face(
     Face {
         nick,
         ident: ident_for(origin, user),
-        realname: format!(
-            "{} on {} via Staffetta (relayed user)",
-            user.nick, origin_label
-        ),
+        realname: realname_for(origin_label),
     }
 }
 
@@ -182,7 +185,8 @@ mod tests {
         );
         assert!(f.nick.chars().count() <= 16, "{}", f.nick);
         assert!(f.nick.ends_with("|azz"), "{}", f.nick);
-        assert!(f.realname.contains("relayed"));
+        assert!(f.realname.to_lowercase().contains("relayed"));
+        assert!(f.realname.chars().count() <= 50, "{}", f.realname);
     }
 
     #[test]

@@ -258,7 +258,7 @@ fn live_both_sides_relays_with_a_tagged_puppet() {
     let face = face.expect("puppet on azzurra");
     assert_eq!(face.nick, "alice|cha");
     assert!(face.ident.starts_with("cha-"));
-    assert!(face.realname.contains("relayed"));
+    assert!(face.realname.to_lowercase().contains("relayed"));
     let s = says(&acts);
     assert_eq!(s.len(), 1);
     assert_eq!(s[0].0, b.net);

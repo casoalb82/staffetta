@@ -1,7 +1,7 @@
 # Staffetta configuration. Copy to config.toml (which git ignores).
 
 service_nick = "Staffetta"
-service_realname = "Staffetta channel relay service (relay bot, not a person)"
+service_realname = "Staffetta relay bot (not a person)"
 state_dir = "state"
 
 # Owners must be logged in to services to manage a link.

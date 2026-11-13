@@ -97,7 +97,7 @@ fn default_nick() -> String {
     "Staffetta".into()
 }
 fn default_realname() -> String {
-    "Staffetta channel relay service (relay bot, not a person)".into()
+    "Staffetta relay bot (not a person)".into()
 }
 fn default_state_dir() -> PathBuf {
     "state".into()
