@@ -17,7 +17,7 @@ Its author's own retrospective and the code show what to avoid:
 | Threads and global dictionaries guarded by per-network locks; the code itself admits races. | One async runtime. All relay state lives in one deterministic engine that is fed one event at a time. |
 | Invented "virtual UIDs" for users the network gave no ID to, which leaked into modes and kicks and caused repeated bugs. | Stable **internal ids**. Names on the wire (nick, ident) are only a *face* attached to an id, built in one place. |
 | Modes and nick rules hard-coded all over the plugin. | Every owner rule is a typed `Policy` with validated settings. |
-| A `/net` suffix in the nick made ordinary ban masks impossible. | The puppet's **ident** carries the origin and is derived from the person's identity, so `*!*cha-3fa91c@*` bans exactly that person. |
+| A `/net` suffix in the nick made ordinary ban masks impossible. | The puppet's **ident** carries the origin and is derived from the person's identity, so `*!*cha-3fa91@*` bans exactly that person. |
 | No tests for the relay at all (the suite only covers parsers and protocols). | The engine has scenario tests; the whole stack has end-to-end tests against a fake network. |
 | Wanted for years, never done: ban sync, flood protection, ignore. | Built in from the start, per channel. |
 | Control by network (a link ACL) and by service commands, no owner-facing model. | Control per channel, by that channel's operators, with preview and an audit log. |
@@ -43,7 +43,7 @@ Its author's own retrospective and the code show what to avoid:
 
 * **nick**: `nick|tag` (the style is configurable), cut to the network's nick
   length without ever losing the tag; collisions add a counter.
-* **ident**: `<3-letter network>-<6 hex>`, hashed from the services account when
+* **ident**: `<3-letter network>-<5 hex>`, hashed from the services account when
   known, else from the nick. Stable, ban-friendly, at most 10 characters.
 * **realname**: says it is a relayed user and from where.
 

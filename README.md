@@ -17,7 +17,7 @@ In `#italy` on network A, a person called `alice` talks. In `#italia` on network
 the channel members see:
 
 ```
--!- alice|cha [cha-3fa91c@host] has joined #italia
+-!- alice|cha [cha-3fa91@host] has joined #italia
 <alice|cha> ciao dall'Italia!
 ```
 
@@ -38,7 +38,7 @@ Ita Link is built the other way round:
 * **Each side switches LIVE by itself.** Chat only flows while *both* sides are live.
 * **Your rules, applied on your side.** Who may speak, flood limits, minimum time in
   channel, only-logged-in-users, blocked people, muted channels. Change them any time.
-* **Bans are ordinary bans.** Ban the puppet's mask (`*!*cha-3fa91c@*`) with your
+* **Bans are ordinary bans.** Ban the puppet's mask (`*!*cha-3fa91@*`) with your
   normal IRC client. It sticks to the person behind it, on your channel only.
   A kick keeps them out for ten minutes, a ban forever.
 * **One command stops everything**, instantly: `PAUSE`, `UNLINK`. Leaving costs nothing.

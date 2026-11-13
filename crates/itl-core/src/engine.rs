@@ -655,7 +655,7 @@ impl Engine {
     /// Is this person blocked by `policy`? A mask is tested against who they
     /// really are on their own network *and* against the face their puppet
     /// wears, so an owner can ban a puppet by the mask their own IRC client
-    /// shows (`*!*cha-3fa91c@*`) and it sticks to the person behind it.
+    /// shows (`*!*cha-3fa91@*`) and it sticks to the person behind it.
     fn blocked(&self, policy: &Policy, origin: &NetId, user: &SeenUser) -> bool {
         if policy.block.is_empty() {
             return false;

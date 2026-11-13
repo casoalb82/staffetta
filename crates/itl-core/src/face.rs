@@ -5,7 +5,7 @@
 //! * The nick carries a short network tag, so nobody can be mistaken for a
 //!   local user. The tag style is configurable.
 //! * The **ident is derived from the person's origin identity**, not random:
-//!   `<net-tag>-<6 hex>`. The same person always gets the same ident, and a
+//!   `<net-tag>-<5 hex>` (9 characters: servers add a `~` and cut at 10). The same person always gets the same ident, and a
 //!   channel op can ban exactly that person with an ordinary `*!*ident@*`
 //!   mask - without banning every puppet at once. (PyLink's suffixed nicks
 //!   made ordinary bans impossible.)
@@ -94,10 +94,10 @@ fn identity_key(net: &NetId, user: &SeenUser) -> String {
     }
 }
 
-/// The ident a person gets on every remote network, e.g. `az-3fa91c`.
+/// The ident a person gets on every remote network, e.g. `azz-3fa91`.
 pub fn ident_for(origin: &NetId, user: &SeenUser) -> String {
     let h = fnv1a(&identity_key(origin, user));
-    format!("{}-{:06x}", net_tag(origin), (h & 0xff_ffff) as u32)
+    format!("{}-{:05x}", net_tag(origin), (h & 0xf_ffff) as u32)
 }
 
 /// Build the face of `user` (who lives on `origin`) for use on a remote
@@ -156,7 +156,7 @@ mod tests {
         let b = u("mario_away").with_account("mario"); // other nick, same account
         assert_eq!(ident_for(&net, &a), ident_for(&net, &b));
         assert!(ident_for(&net, &a).starts_with("azz-"));
-        assert!(ident_for(&net, &a).len() <= 10);
+        assert!(ident_for(&net, &a).len() <= 9);
     }
 
     #[test]

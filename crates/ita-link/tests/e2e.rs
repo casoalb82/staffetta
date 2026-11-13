@@ -130,7 +130,7 @@ async fn two_networks_one_conversation() {
     assert!(got.starts_with(":alice|cha!cha-"), "{got}");
     assert!(net_b.is_in("#italia", "alice|cha"));
     let ident = net_b.user_ident("alice|cha").unwrap();
-    assert!(ident.starts_with("cha-") && ident.len() <= 10, "{ident}");
+    assert!(ident.starts_with("cha-") && ident.len() <= 9, "{ident}");
     assert!(net_b
         .user_realname("alice|cha")
         .unwrap()

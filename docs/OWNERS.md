@@ -82,7 +82,7 @@ Ban a remote person as you would anyone, using the mask your IRC client shows fo
 the puppet:
 
 ```
-/mode #yourchannel +b *!*cha-3fa91c@*
+/mode #yourchannel +b *!*cha-3fa91@*
 ```
 
 The part after `cha-` is derived from who the person is on their own network (their
