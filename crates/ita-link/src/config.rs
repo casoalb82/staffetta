@@ -17,8 +17,8 @@
 use anyhow::{bail, Context, Result};
 use itl_core::engine::{EngineConfig, NetConfig, Transport};
 use itl_core::face::NickStyle;
-use itl_core::policy::Lang;
 use itl_core::model::NetId;
+use itl_core::policy::Lang;
 use itl_net::conn::Target;
 use itl_net::NetSpec;
 use serde::Deserialize;
@@ -111,8 +111,10 @@ fn default_max_nick() -> usize {
 
 impl Config {
     pub fn load(path: &Path) -> Result<Config> {
-        let text = std::fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?;
-        let cfg: Config = toml::from_str(&text).with_context(|| format!("parsing {}", path.display()))?;
+        let text =
+            std::fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?;
+        let cfg: Config =
+            toml::from_str(&text).with_context(|| format!("parsing {}", path.display()))?;
         cfg.validate()?;
         Ok(cfg)
     }
@@ -126,11 +128,20 @@ impl Config {
             if !seen.insert(n.id.to_ascii_lowercase()) {
                 bail!("network id '{}' appears twice", n.id);
             }
-            itl_net::conn::validate(&Target { host: n.host.clone(), port: n.port, tls: n.tls, source_ip: None })?;
+            itl_net::conn::validate(&Target {
+                host: n.host.clone(),
+                port: n.port,
+                tls: n.tls,
+                source_ip: None,
+            })?;
             if let Some(p) = &n.puppet_ipv6_pool {
-                itl_net::pool::parse_prefix(p).map_err(|e| anyhow::anyhow!("{}: puppet_ipv6_pool: {e}", n.id))?;
+                itl_net::pool::parse_prefix(p)
+                    .map_err(|e| anyhow::anyhow!("{}: puppet_ipv6_pool: {e}", n.id))?;
                 if n.puppet_source_ip.is_some() {
-                    bail!("{}: use either puppet_source_ip or puppet_ipv6_pool, not both", n.id);
+                    bail!(
+                        "{}: use either puppet_source_ip or puppet_ipv6_pool, not both",
+                        n.id
+                    );
                 }
             }
             if n.max_nick < 9 {
@@ -138,7 +149,8 @@ impl Config {
             }
         }
         if let Some(l) = &self.status_listen {
-            l.parse::<std::net::SocketAddr>().map_err(|_| anyhow::anyhow!("status_listen must look like 127.0.0.1:8088"))?;
+            l.parse::<std::net::SocketAddr>()
+                .map_err(|_| anyhow::anyhow!("status_listen must look like 127.0.0.1:8088"))?;
         }
         if !["it", "en"].contains(&self.default_lang.to_ascii_lowercase().as_str()) {
             bail!("default_lang must be \"it\" or \"en\"");
@@ -159,7 +171,11 @@ impl Config {
             },
             require_account_for_owner: self.require_account_for_owner,
             relay_bots: self.relay_bots,
-            default_lang: if self.default_lang.eq_ignore_ascii_case("en") { Lang::En } else { Lang::It },
+            default_lang: if self.default_lang.eq_ignore_ascii_case("en") {
+                Lang::En
+            } else {
+                Lang::It
+            },
             ..Default::default()
         };
         for n in &self.networks {
@@ -190,7 +206,10 @@ impl Config {
                 service_nick: self.service_nick.clone(),
                 service_realname: self.service_realname.clone(),
                 puppet_source: n.puppet_source_ip,
-                puppet_pool: n.puppet_ipv6_pool.as_deref().and_then(|p| itl_net::pool::parse_prefix(p).ok()),
+                puppet_pool: n
+                    .puppet_ipv6_pool
+                    .as_deref()
+                    .and_then(|p| itl_net::pool::parse_prefix(p).ok()),
             })
             .collect()
     }
@@ -267,7 +286,10 @@ mod pool_tests {
         let bad = ok.replace("/64", "/8");
         let c: Config = toml::from_str(&bad).unwrap();
         assert!(c.validate().is_err());
-        let both = ok.replace("puppet_ipv6_pool", "puppet_source_ip='::1'\npuppet_ipv6_pool");
+        let both = ok.replace(
+            "puppet_ipv6_pool",
+            "puppet_source_ip='::1'\npuppet_ipv6_pool",
+        );
         let c: Config = toml::from_str(&both).unwrap();
         assert!(c.validate().is_err());
     }

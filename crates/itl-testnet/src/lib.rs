@@ -84,14 +84,21 @@ fn broadcast(st: &State, chan: &str, line: String, except: Option<&str>) {
 impl TestNet {
     /// Start a server on 127.0.0.1 with an OS-chosen port.
     pub async fn start(name: &str) -> TestNet {
-        let listener = TcpListener::bind("127.0.0.1:0").await.expect("bind loopback");
+        let listener = TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("bind loopback");
         let addr = listener.local_addr().unwrap();
         assert!(addr.ip().is_loopback());
-        let state = Arc::new(Mutex::new(State { name: name.to_string(), ..Default::default() }));
+        let state = Arc::new(Mutex::new(State {
+            name: name.to_string(),
+            ..Default::default()
+        }));
         let st = state.clone();
         tokio::spawn(async move {
             loop {
-                let Ok((sock, _)) = listener.accept().await else { break };
+                let Ok((sock, _)) = listener.accept().await else {
+                    break;
+                };
                 let st = st.clone();
                 tokio::spawn(async move {
                     let _ = serve(sock, st).await;
@@ -112,15 +119,30 @@ impl TestNet {
     }
 
     pub fn has_user(&self, nick: &str) -> bool {
-        self.state.lock().unwrap().users.get(&fold(nick)).is_some_and(|u| u.registered)
+        self.state
+            .lock()
+            .unwrap()
+            .users
+            .get(&fold(nick))
+            .is_some_and(|u| u.registered)
     }
 
     pub fn user_ident(&self, nick: &str) -> Option<String> {
-        self.state.lock().unwrap().users.get(&fold(nick)).map(|u| u.ident.clone())
+        self.state
+            .lock()
+            .unwrap()
+            .users
+            .get(&fold(nick))
+            .map(|u| u.ident.clone())
     }
 
     pub fn user_realname(&self, nick: &str) -> Option<String> {
-        self.state.lock().unwrap().users.get(&fold(nick)).map(|u| u.realname.clone())
+        self.state
+            .lock()
+            .unwrap()
+            .users
+            .get(&fold(nick))
+            .map(|u| u.realname.clone())
     }
 
     /// Nicks in a channel (case as given by the users), op/voice not marked.
@@ -128,13 +150,20 @@ impl TestNet {
         let s = self.state.lock().unwrap();
         s.chans
             .get(&fold(chan))
-            .map(|c| c.members.keys().map(|k| s.users.get(k).map(|u| u.nick.clone()).unwrap_or(k.clone())).collect())
+            .map(|c| {
+                c.members
+                    .keys()
+                    .map(|k| s.users.get(k).map(|u| u.nick.clone()).unwrap_or(k.clone()))
+                    .collect()
+            })
             .unwrap_or_default()
     }
 
     pub fn is_in(&self, chan: &str, nick: &str) -> bool {
         let s = self.state.lock().unwrap();
-        s.chans.get(&fold(chan)).is_some_and(|c| c.members.contains_key(&fold(nick)))
+        s.chans
+            .get(&fold(chan))
+            .is_some_and(|c| c.members.contains_key(&fold(nick)))
     }
 
     pub fn log(&self) -> Vec<LogEntry> {
@@ -157,10 +186,17 @@ impl TestNet {
         let mut s = self.state.lock().unwrap();
         let pfx = s.name.clone();
         let (changed, msg) = {
-            let Some(c) = s.chans.get_mut(&fold(chan)) else { return };
-            let Some(m) = c.members.get_mut(&fold(nick)) else { return };
+            let Some(c) = s.chans.get_mut(&fold(chan)) else {
+                return;
+            };
+            let Some(m) = c.members.get_mut(&fold(nick)) else {
+                return;
+            };
             m.0 = op;
-            (true, format!(":{pfx} MODE {chan} {}o {nick}", if op { "+" } else { "-" }))
+            (
+                true,
+                format!(":{pfx} MODE {chan} {}o {nick}", if op { "+" } else { "-" }),
+            )
         };
         if changed {
             broadcast(&s, chan, msg, None);
@@ -187,7 +223,10 @@ impl TestNet {
     pub fn ban_and_kick(&self, chan: &str, nick: &str) {
         let mask = {
             let s = self.state.lock().unwrap();
-            s.users.get(&fold(nick)).map(|u| format!("*!{}@*", u.ident)).unwrap_or_default()
+            s.users
+                .get(&fold(nick))
+                .map(|u| format!("*!{}@*", u.ident))
+                .unwrap_or_default()
         };
         self.add_ban(chan, &mask);
         self.kick(chan, nick, "banned");
@@ -239,7 +278,11 @@ async fn serve(sock: TcpStream, st: Arc<Mutex<State>>) -> std::io::Result<()> {
         let sname = s.name.clone();
         match m.command.as_str() {
             "CAP" => {
-                let sub = m.params.first().map(|x| x.to_uppercase()).unwrap_or_default();
+                let sub = m
+                    .params
+                    .first()
+                    .map(|x| x.to_uppercase())
+                    .unwrap_or_default();
                 match sub.as_str() {
                     "LS" => {
                         cap_negotiating = true;
@@ -259,20 +302,36 @@ async fn serve(sock: TcpStream, st: Arc<Mutex<State>>) -> std::io::Result<()> {
             "NICK" => {
                 let new = m.params.first().cloned().unwrap_or_default();
                 if me.is_empty() {
-                    if s.users.get(&fold(&new)).is_some_and(|u| u.registered || u.conn != conn_id) {
-                        let _ = tx.send(format!(":{sname} 433 * {new} :Nickname is already in use"));
+                    if s.users
+                        .get(&fold(&new))
+                        .is_some_and(|u| u.registered || u.conn != conn_id)
+                    {
+                        let _ =
+                            tx.send(format!(":{sname} 433 * {new} :Nickname is already in use"));
                     } else {
                         pending_nick = Some(new);
                     }
-                } else if s.users.get(&fold(&new)).is_some_and(|u| fold(&u.nick) != me) {
-                    let _ = tx.send(format!(":{sname} 433 {} {new} :Nickname is already in use", s.users[&me].nick));
+                } else if s
+                    .users
+                    .get(&fold(&new))
+                    .is_some_and(|u| fold(&u.nick) != me)
+                {
+                    let _ = tx.send(format!(
+                        ":{sname} 433 {} {new} :Nickname is already in use",
+                        s.users[&me].nick
+                    ));
                 } else {
                     // nick change: move the user, tell everyone who shares a channel
                     let mut u = s.users.remove(&me).unwrap();
                     let old_prefix = prefix_of(&u);
                     u.nick = new.clone();
                     let nf = fold(&new);
-                    let chans: Vec<String> = s.chans.iter().filter(|(_, c)| c.members.contains_key(&me)).map(|(k, _)| k.clone()).collect();
+                    let chans: Vec<String> = s
+                        .chans
+                        .iter()
+                        .filter(|(_, c)| c.members.contains_key(&me))
+                        .map(|(k, _)| k.clone())
+                        .collect();
                     for k in &chans {
                         let c = s.chans.get_mut(k).unwrap();
                         if let Some(v) = c.members.remove(&me) {
@@ -295,7 +354,10 @@ async fn serve(sock: TcpStream, st: Arc<Mutex<State>>) -> std::io::Result<()> {
                 ));
             }
             "PING" => {
-                let _ = tx.send(format!(":{sname} PONG {sname} :{}", m.params.first().cloned().unwrap_or_default()));
+                let _ = tx.send(format!(
+                    ":{sname} PONG {sname} :{}",
+                    m.params.first().cloned().unwrap_or_default()
+                ));
             }
             "QUIT" => break,
             _ if me.is_empty() => {}
@@ -307,7 +369,10 @@ async fn serve(sock: TcpStream, st: Arc<Mutex<State>>) -> std::io::Result<()> {
             "PART" => {
                 let ch = m.params.first().cloned().unwrap_or_default();
                 let reason = m.params.get(1).cloned().unwrap_or_default();
-                if s.chans.get(&fold(&ch)).is_some_and(|c| c.members.contains_key(&me)) {
+                if s.chans
+                    .get(&fold(&ch))
+                    .is_some_and(|c| c.members.contains_key(&me))
+                {
                     let p = prefix_of(&s.users[&me]);
                     let line = format!(":{p} PART {ch} :{reason}");
                     broadcast(&s, &ch, line, None);
@@ -325,17 +390,33 @@ async fn serve(sock: TcpStream, st: Arc<Mutex<State>>) -> std::io::Result<()> {
                 let p = prefix_of(&s.users[&me]);
                 let line = format!(":{p} {} {target} :{text}", m.command);
                 if target.starts_with(['#', '&']) {
-                    if !s.chans.get(&fold(&target)).is_some_and(|c| c.members.contains_key(&me)) {
-                        let _ = tx.send(format!(":{sname} 404 {from} {target} :Cannot send to channel"));
+                    if !s
+                        .chans
+                        .get(&fold(&target))
+                        .is_some_and(|c| c.members.contains_key(&me))
+                    {
+                        let _ = tx.send(format!(
+                            ":{sname} 404 {from} {target} :Cannot send to channel"
+                        ));
                     } else {
                         broadcast(&s, &target, line, Some(&from));
-                        s.log.push(LogEntry { target: target.clone(), from, text });
+                        s.log.push(LogEntry {
+                            target: target.clone(),
+                            from,
+                            text,
+                        });
                     }
                 } else if s.users.contains_key(&fold(&target)) {
                     send_to(&s, &target, line);
-                    s.log.push(LogEntry { target: target.clone(), from, text });
+                    s.log.push(LogEntry {
+                        target: target.clone(),
+                        from,
+                        text,
+                    });
                 } else {
-                    let _ = tx.send(format!(":{sname} 401 {from} {target} :No such nick/channel"));
+                    let _ = tx.send(format!(
+                        ":{sname} 401 {from} {target} :No such nick/channel"
+                    ));
                 }
             }
             "NAMES" => {
@@ -349,12 +430,18 @@ async fn serve(sock: TcpStream, st: Arc<Mutex<State>>) -> std::io::Result<()> {
                 if let Some(c) = s.chans.get(&fold(&ch)) {
                     for (k, (op, voice)) in &c.members {
                         let u = &s.users[k];
-                        let fl = format!("H{}{}", if *op { "@" } else { "" }, if *voice { "+" } else { "" });
+                        let fl = format!(
+                            "H{}{}",
+                            if *op { "@" } else { "" },
+                            if *voice { "+" } else { "" }
+                        );
                         if let Some(spec) = &whox {
                             // %<letters>,<token>: answer with 354 in canonical field order
-                            let (letters, token) = spec[1..].split_once(',').unwrap_or((&spec[1..], "0"));
+                            let (letters, token) =
+                                spec[1..].split_once(',').unwrap_or((&spec[1..], "0"));
                             let mut fields: Vec<String> = Vec::new();
-                            for want in ['t', 'c', 'i', 'u', 'h', 's', 'n', 'f', 'd', 'l', 'a', 'o'] {
+                            for want in ['t', 'c', 'i', 'u', 'h', 's', 'n', 'f', 'd', 'l', 'a', 'o']
+                            {
                                 if !letters.contains(want) {
                                     continue;
                                 }
@@ -371,10 +458,18 @@ async fn serve(sock: TcpStream, st: Arc<Mutex<State>>) -> std::io::Result<()> {
                                     _ => "0".into(),
                                 });
                             }
-                            let tail = if letters.contains('r') { format!(" :{}", u.realname) } else { String::new() };
-                            let _ = tx.send(format!(":{sname} 354 {my} {}{tail}", fields.join(" ")));
+                            let tail = if letters.contains('r') {
+                                format!(" :{}", u.realname)
+                            } else {
+                                String::new()
+                            };
+                            let _ =
+                                tx.send(format!(":{sname} 354 {my} {}{tail}", fields.join(" ")));
                         } else {
-                            let _ = tx.send(format!(":{sname} 352 {my} {ch} {} {} {sname} {} {fl} :0 {}", u.ident, u.host, u.nick, u.realname));
+                            let _ = tx.send(format!(
+                                ":{sname} 352 {my} {ch} {} {} {sname} {} {fl} :0 {}",
+                                u.ident, u.host, u.nick, u.realname
+                            ));
                         }
                     }
                 }
@@ -383,21 +478,37 @@ async fn serve(sock: TcpStream, st: Arc<Mutex<State>>) -> std::io::Result<()> {
             "MODE" => {
                 let ch = m.params.first().cloned().unwrap_or_default();
                 if let (Some(modes), Some(arg)) = (m.params.get(1), m.params.get(2)) {
-                    let is_op = s.chans.get(&fold(&ch)).and_then(|c| c.members.get(&me)).is_some_and(|x| x.0);
+                    let is_op = s
+                        .chans
+                        .get(&fold(&ch))
+                        .and_then(|c| c.members.get(&me))
+                        .is_some_and(|x| x.0);
                     if is_op {
                         let p = prefix_of(&s.users[&me]);
                         let plus = modes.starts_with('+');
                         match modes.trim_start_matches(['+', '-']) {
                             "o" | "v" => {
                                 let which = modes.trim_start_matches(['+', '-']).to_string();
-                                if let Some(x) = s.chans.get_mut(&fold(&ch)).and_then(|c| c.members.get_mut(&fold(arg))) {
-                                    if which == "o" { x.0 = plus } else { x.1 = plus }
+                                if let Some(x) = s
+                                    .chans
+                                    .get_mut(&fold(&ch))
+                                    .and_then(|c| c.members.get_mut(&fold(arg)))
+                                {
+                                    if which == "o" {
+                                        x.0 = plus
+                                    } else {
+                                        x.1 = plus
+                                    }
                                 }
                                 broadcast(&s, &ch, format!(":{p} MODE {ch} {modes} {arg}"), None);
                             }
                             "b" => {
                                 let c = s.chans.entry(fold(&ch)).or_default();
-                                if plus { c.bans.push(arg.clone()) } else { c.bans.retain(|b| b != arg) }
+                                if plus {
+                                    c.bans.push(arg.clone())
+                                } else {
+                                    c.bans.retain(|b| b != arg)
+                                }
                                 broadcast(&s, &ch, format!(":{p} MODE {ch} {modes} {arg}"), None);
                             }
                             _ => {}
@@ -409,7 +520,11 @@ async fn serve(sock: TcpStream, st: Arc<Mutex<State>>) -> std::io::Result<()> {
                 let ch = m.params.first().cloned().unwrap_or_default();
                 let target = m.params.get(1).cloned().unwrap_or_default();
                 let reason = m.params.get(2).cloned().unwrap_or_default();
-                let is_op = s.chans.get(&fold(&ch)).and_then(|c| c.members.get(&me)).is_some_and(|x| x.0);
+                let is_op = s
+                    .chans
+                    .get(&fold(&ch))
+                    .and_then(|c| c.members.get(&me))
+                    .is_some_and(|x| x.0);
                 if is_op {
                     let p = prefix_of(&s.users[&me]);
                     broadcast(&s, &ch, format!(":{p} KICK {ch} {target} :{reason}"), None);
@@ -448,7 +563,9 @@ async fn serve(sock: TcpStream, st: Arc<Mutex<State>>) -> std::io::Result<()> {
                 );
                 me = nf;
                 let sn = s.name.clone();
-                let _ = tx.send(format!(":{sn} 001 {n} :Welcome to the {sn} test network, {n}"));
+                let _ = tx.send(format!(
+                    ":{sn} 001 {n} :Welcome to the {sn} test network, {n}"
+                ));
                 let _ = tx.send(format!(":{sn} 005 {n} PREFIX=(ov)@+ NICKLEN=30 CHANTYPES=#& CASEMAPPING=rfc1459 WHOX :are supported by this server"));
                 let _ = tx.send(format!(":{sn} 376 {n} :End of /MOTD command."));
             }
@@ -464,7 +581,12 @@ async fn serve(sock: TcpStream, st: Arc<Mutex<State>>) -> std::io::Result<()> {
         if !me.is_empty() && s.users.get(&me).is_some_and(|u| u.conn == conn_id) {
             let u = s.users.remove(&me).unwrap();
             let line = format!(":{} QUIT :Connection closed", prefix_of(&u));
-            let chans: Vec<String> = s.chans.iter().filter(|(_, c)| c.members.contains_key(&me)).map(|(k, _)| k.clone()).collect();
+            let chans: Vec<String> = s
+                .chans
+                .iter()
+                .filter(|(_, c)| c.members.contains_key(&me))
+                .map(|(k, _)| k.clone())
+                .collect();
             for k in chans {
                 s.chans.get_mut(&k).unwrap().members.remove(&me);
                 broadcast(&s, &k, line.clone(), None);
@@ -484,7 +606,10 @@ fn join(s: &mut State, me: &str, ch: &str, tx: &mpsc::UnboundedSender<String>) {
     let u = &s.users[me];
     let mask = prefix_of(u);
     let my = u.nick.clone();
-    if s.chans.get(&fold(ch)).is_some_and(|c| c.bans.iter().any(|b| glob(b, &mask))) {
+    if s.chans
+        .get(&fold(ch))
+        .is_some_and(|c| c.bans.iter().any(|b| glob(b, &mask)))
+    {
         let _ = tx.send(format!(":{sname} 474 {my} {ch} :Cannot join channel (+b)"));
         return;
     }
@@ -501,7 +626,12 @@ fn join(s: &mut State, me: &str, ch: &str, tx: &mpsc::UnboundedSender<String>) {
     for n in members {
         let r = &s.users[&n];
         let line = if r.caps.iter().any(|c| c == "extended-join") {
-            format!(":{} JOIN {ch} {} :{}", prefix_of(u), u.account.clone().unwrap_or("*".into()), u.realname)
+            format!(
+                ":{} JOIN {ch} {} :{}",
+                prefix_of(u),
+                u.account.clone().unwrap_or("*".into()),
+                u.realname
+            )
         } else {
             format!(":{} JOIN {ch}", prefix_of(u))
         };
@@ -535,7 +665,11 @@ fn names(s: &State, me: &str, ch: &str, tx: &mpsc::UnboundedSender<String>) {
                 }
             })
             .collect();
-        let _ = tx.send(format!(":{sname} 353 {} = {ch} :{}", u.nick, list.join(" ")));
+        let _ = tx.send(format!(
+            ":{sname} 353 {} = {ch} :{}",
+            u.nick,
+            list.join(" ")
+        ));
     }
     let _ = tx.send(format!(":{sname} 366 {} {ch} :End of /NAMES list.", u.nick));
 }
@@ -556,23 +690,41 @@ pub struct Client {
 
 impl Client {
     pub async fn connect(net: &TestNet, nick: &str) -> Client {
-        let sock = TcpStream::connect(net.addr).await.expect("connect test net");
+        let sock = TcpStream::connect(net.addr)
+            .await
+            .expect("connect test net");
         let (rd, wr) = sock.into_split();
-        let mut c = Client { rd: BufReader::new(rd).lines(), wr, nick: nick.to_string(), seen: Vec::new() };
+        let mut c = Client {
+            rd: BufReader::new(rd).lines(),
+            wr,
+            nick: nick.to_string(),
+            seen: Vec::new(),
+        };
         c.send(&format!("NICK {nick}")).await;
-        c.send(&format!("USER {} 0 * :{nick} (test client)", nick.to_ascii_lowercase())).await;
-        c.wait_for(|l| l.contains(" 001 "), 5).await.expect("welcome");
+        c.send(&format!(
+            "USER {} 0 * :{nick} (test client)",
+            nick.to_ascii_lowercase()
+        ))
+        .await;
+        c.wait_for(|l| l.contains(" 001 "), 5)
+            .await
+            .expect("welcome");
         c
     }
 
     pub async fn send(&mut self, line: &str) {
-        self.wr.write_all(format!("{line}\r\n").as_bytes()).await.unwrap();
+        self.wr
+            .write_all(format!("{line}\r\n").as_bytes())
+            .await
+            .unwrap();
     }
 
     pub async fn join(&mut self, chan: &str) {
         self.send(&format!("JOIN {chan}")).await;
         let end = format!(" 366 {} {chan} ", self.nick);
-        self.wait_for(|l| l.contains(&end), 5).await.expect("end of names");
+        self.wait_for(|l| l.contains(&end), 5)
+            .await
+            .expect("end of names");
     }
 
     pub async fn say(&mut self, target: &str, text: &str) {
@@ -593,7 +745,10 @@ impl Client {
                     if let Some(m) = parse(&l) {
                         if m.command == "PING" {
                             let tok = m.params.first().cloned().unwrap_or_default();
-                            let _ = self.wr.write_all(format!("PONG :{tok}\r\n").as_bytes()).await;
+                            let _ = self
+                                .wr
+                                .write_all(format!("PONG :{tok}\r\n").as_bytes())
+                                .await;
                         }
                     }
                     if pred(&l) {

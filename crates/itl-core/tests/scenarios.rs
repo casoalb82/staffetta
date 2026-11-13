@@ -25,12 +25,27 @@ fn user(nick: &str) -> SeenUser {
 
 impl World {
     fn new() -> World {
-        let mut cfg = EngineConfig::default();
-        cfg.service_nick = SVC.into();
-        for (n, l) in [("chatnet", "ChatNet"), ("azzurra", "Azzurra"), ("irc-it", "IRC-IT")] {
-            cfg.networks.insert(net(n), NetConfig { label: l.into(), ..Default::default() });
+        let mut cfg = EngineConfig {
+            service_nick: SVC.into(),
+            ..Default::default()
+        };
+        for (n, l) in [
+            ("chatnet", "ChatNet"),
+            ("azzurra", "Azzurra"),
+            ("irc-it", "IRC-IT"),
+        ] {
+            cfg.networks.insert(
+                net(n),
+                NetConfig {
+                    label: l.into(),
+                    ..Default::default()
+                },
+            );
         }
-        World { e: Engine::new(cfg), now: 1_000_000 }
+        World {
+            e: Engine::new(cfg),
+            now: 1_000_000,
+        }
     }
 
     fn ev(&mut self, ev: Event) -> Vec<Action> {
@@ -39,15 +54,27 @@ impl World {
 
     fn sync(&mut self, c: &ChanKey, users: &[(&str, Role)]) -> Vec<Action> {
         let list = users.iter().map(|(n, r)| (user(n), *r)).collect();
-        self.ev(Event::Sync { chan: c.clone(), users: list })
+        self.ev(Event::Sync {
+            chan: c.clone(),
+            users: list,
+        })
     }
 
     fn cmd(&mut self, n: &str, nick: &str, text: &str) -> Vec<Action> {
-        self.ev(Event::Command { net: net(n), nick: nick.into(), text: text.into() })
+        self.ev(Event::Command {
+            net: net(n),
+            nick: nick.into(),
+            text: text.into(),
+        })
     }
 
     fn say(&mut self, c: &ChanKey, nick: &str, text: &str) -> Vec<Action> {
-        self.ev(Event::Say { chan: c.clone(), nick: nick.into(), text: text.into(), kind: SayKind::Message })
+        self.ev(Event::Say {
+            chan: c.clone(),
+            nick: nick.into(),
+            text: text.into(),
+            kind: SayKind::Message,
+        })
     }
 
     fn advance(&mut self, secs: u64) {
@@ -82,7 +109,13 @@ fn replies(acts: &[Action]) -> Vec<String> {
 fn says(acts: &[Action]) -> Vec<(NetId, Via, String, String)> {
     acts.iter()
         .filter_map(|a| match a {
-            Action::Say { net, via, chan, text, .. } => Some((net.clone(), via.clone(), chan.clone(), text.clone())),
+            Action::Say {
+                net,
+                via,
+                chan,
+                text,
+                ..
+            } => Some((net.clone(), via.clone(), chan.clone(), text.clone())),
             _ => None,
         })
         .collect()
@@ -132,9 +165,17 @@ fn a_link_needs_both_owners_and_starts_in_preview() {
 
     // The target can also refuse.
     let acts = w.cmd("azzurra", "opB", "ACCEPT #italia chatnet #italy");
-    assert!(acts.iter().any(|x| matches!(x, Action::Notice { text, .. } if text.contains("PREVIEW"))));
-    assert_eq!(w.e.member(&a).unwrap().policy.mode, itl_core::policy::Mode::Preview);
-    assert_eq!(w.e.member(&b).unwrap().policy.mode, itl_core::policy::Mode::Preview);
+    assert!(acts
+        .iter()
+        .any(|x| matches!(x, Action::Notice { text, .. } if text.contains("PREVIEW"))));
+    assert_eq!(
+        w.e.member(&a).unwrap().policy.mode,
+        itl_core::policy::Mode::Preview
+    );
+    assert_eq!(
+        w.e.member(&b).unwrap().policy.mode,
+        itl_core::policy::Mode::Preview
+    );
 
     // Preview: not one line crosses.
     w.advance(600);
@@ -193,9 +234,16 @@ fn live_on_one_side_only_shows_nothing_but_previews_it() {
     w.cmd("azzurra", "opB", "ACCEPT #italia chatnet #italy");
     w.cmd("chatnet", "opA", "LIVE #italy"); // only A goes live
     w.advance(600);
-    assert!(says(&w.say(&a, "alice", "ciao")).is_empty(), "B is still preview: nothing is sent");
+    assert!(
+        says(&w.say(&a, "alice", "ciao")).is_empty(),
+        "B is still preview: nothing is sent"
+    );
     let r = replies(&w.cmd("azzurra", "opB", "SAMPLE #italia"));
-    assert!(r.iter().any(|l| l.contains("alice|cha") && l.contains("ciao")), "{r:?}");
+    assert!(
+        r.iter()
+            .any(|l| l.contains("alice|cha") && l.contains("ciao")),
+        "{r:?}"
+    );
 }
 
 #[test]
@@ -225,7 +273,9 @@ fn live_both_sides_relays_with_a_tagged_puppet() {
 fn lazy_puppets_join_when_they_speak_and_leave_when_idle() {
     let (mut w, a, b) = World::linked_live();
     let acts = w.say(&a, "alice", "eccomi");
-    assert!(acts.iter().any(|x| matches!(x, Action::PuppetJoin { net, chan, .. } if net == &b.net && chan == "#italia")));
+    assert!(acts.iter().any(
+        |x| matches!(x, Action::PuppetJoin { net, chan, .. } if net == &b.net && chan == "#italia")
+    ));
     w.advance(31 * 60); // default idle is 30 minutes
     let acts = w.ev(Event::Tick);
     assert!(acts.iter().any(|x| matches!(x, Action::PuppetPart { .. })));
@@ -237,9 +287,18 @@ fn lazy_puppets_join_when_they_speak_and_leave_when_idle() {
 fn full_presence_fills_the_user_list_and_follows_parts() {
     let (mut w, a, b) = World::linked_live();
     w.cmd("azzurra", "opB", "SET #italia presence full");
-    let acts = w.ev(Event::Join { chan: a.clone(), user: user("carla"), role: Role::Normal });
-    assert!(acts.iter().any(|x| matches!(x, Action::PuppetJoin { net, chan, .. } if net == &b.net && chan == "#italia")));
-    let acts = w.ev(Event::Part { chan: a.clone(), nick: "carla".into() });
+    let acts = w.ev(Event::Join {
+        chan: a.clone(),
+        user: user("carla"),
+        role: Role::Normal,
+    });
+    assert!(acts.iter().any(
+        |x| matches!(x, Action::PuppetJoin { net, chan, .. } if net == &b.net && chan == "#italia")
+    ));
+    let acts = w.ev(Event::Part {
+        chan: a.clone(),
+        nick: "carla".into(),
+    });
     assert!(acts.iter().any(|x| matches!(x, Action::PuppetPart { .. })));
     assert!(acts.iter().any(|x| matches!(x, Action::PuppetQuit { .. })));
 }
@@ -247,7 +306,10 @@ fn full_presence_fills_the_user_list_and_follows_parts() {
 #[test]
 fn bots_commands_and_formatting_are_handled() {
     let (mut w, a, _b) = World::linked_live();
-    assert!(says(&w.say(&a, "alice", "!help")).is_empty(), "bot commands are not relayed");
+    assert!(
+        says(&w.say(&a, "alice", "!help")).is_empty(),
+        "bot commands are not relayed"
+    );
     assert!(says(&w.say(&a, "alice", ".duck")).is_empty());
     let s = says(&w.say(&a, "alice", "\x02ciao\x02 \x0304rosso\x03"));
     assert_eq!(s[0].3, "ciao rosso");
@@ -255,14 +317,23 @@ fn bots_commands_and_formatting_are_handled() {
     let s = says(&w.say(&a, "alice", &long));
     assert!(s[0].3.chars().count() <= 350);
     // Notices are never relayed.
-    let acts = w.ev(Event::Say { chan: a.clone(), nick: "alice".into(), text: "hi".into(), kind: SayKind::Notice });
+    let acts = w.ev(Event::Say {
+        chan: a.clone(),
+        nick: "alice".into(),
+        text: "hi".into(),
+        kind: SayKind::Notice,
+    });
     assert!(says(&acts).is_empty());
 }
 
 #[test]
 fn newcomers_cannot_speak_across_immediately() {
     let (mut w, a, _b) = World::linked_live();
-    w.ev(Event::Join { chan: a.clone(), user: user("troll"), role: Role::Normal });
+    w.ev(Event::Join {
+        chan: a.clone(),
+        user: user("troll"),
+        role: Role::Normal,
+    });
     w.advance(10);
     assert!(says(&w.say(&a, "troll", "flame")).is_empty(), "too new");
     w.advance(120);
@@ -279,13 +350,19 @@ fn flood_protection_is_per_person_on_the_receiving_side() {
     assert_eq!(delivered, 5, "burst of 5, then dropped");
     assert!(w.e.stats(&b).dropped_rate >= 5);
     // Another person has their own allowance.
-    w.ev(Event::Join { chan: a.clone(), user: user("dave"), role: Role::Normal });
+    w.ev(Event::Join {
+        chan: a.clone(),
+        user: user("dave"),
+        role: Role::Normal,
+    });
     w.advance(200);
     assert_eq!(says(&w.say(&a, "dave", "io")).len(), 1);
     // The owner can tighten it.
     w.cmd("azzurra", "opB", "SET #italia rate 1/60");
     w.advance(3600);
-    let n: usize = (0..3).map(|i| says(&w.say(&a, "alice", &format!("x{i}"))).len()).sum();
+    let n: usize = (0..3)
+        .map(|i| says(&w.say(&a, "alice", &format!("x{i}"))).len())
+        .sum();
     assert_eq!(n, 1);
 }
 
@@ -293,7 +370,10 @@ fn flood_protection_is_per_person_on_the_receiving_side() {
 fn never_relays_its_own_puppets_so_no_loops() {
     let (mut w, a, b) = World::linked_live();
     w.say(&a, "alice", "ciao"); // spawns "alice|cha" on azzurra
-    let nick = w.e.puppet_nick(&b.net, 1).or_else(|| w.e.puppet_nick(&b.net, 2)).unwrap();
+    let nick =
+        w.e.puppet_nick(&b.net, 1)
+            .or_else(|| w.e.puppet_nick(&b.net, 2))
+            .unwrap();
     let acts = w.say(&b, &nick, "ciao"); // what azzurra's server would echo back to us
     assert!(says(&acts).is_empty());
 }
@@ -304,7 +384,10 @@ fn never_relays_its_own_puppets_so_no_loops() {
 fn owner_can_block_a_person_on_their_own_side_only() {
     let (mut w, a, b) = World::linked_live();
     w.cmd("azzurra", "opB", "BLOCK #italia alice");
-    assert!(says(&w.say(&a, "alice", "ciao")).is_empty(), "alice is blocked in #italia");
+    assert!(
+        says(&w.say(&a, "alice", "ciao")).is_empty(),
+        "alice is blocked in #italia"
+    );
     // Alice can still talk to nobody else, but bob is unaffected.
     assert_eq!(says(&w.say(&b, "bob", "ciao")).len(), 1);
     w.cmd("azzurra", "opB", "UNBLOCK #italia alice");
@@ -316,7 +399,11 @@ fn require_account_filters_incoming_people() {
     let (mut w, a, _b) = World::linked_live();
     w.cmd("azzurra", "opB", "SET #italia require-account on");
     assert!(says(&w.say(&a, "alice", "ciao")).is_empty());
-    w.ev(Event::Join { chan: a.clone(), user: user("erika").with_account("erika"), role: Role::Normal });
+    w.ev(Event::Join {
+        chan: a.clone(),
+        user: user("erika").with_account("erika"),
+        role: Role::Normal,
+    });
     w.advance(200);
     assert_eq!(says(&w.say(&a, "erika", "ciao")).len(), 1);
 }
@@ -325,21 +412,44 @@ fn require_account_filters_incoming_people() {
 fn a_kick_is_a_warning_a_ban_is_forever() {
     let (mut w, a, b) = World::linked_live();
     w.say(&a, "alice", "ciao");
-    let pn = w.e.puppet_nick(&b.net, 2).or_else(|| w.e.puppet_nick(&b.net, 1)).unwrap();
+    let pn =
+        w.e.puppet_nick(&b.net, 2)
+            .or_else(|| w.e.puppet_nick(&b.net, 1))
+            .unwrap();
 
     // Kick: kept out for 10 minutes only.
-    w.ev(Event::PuppetLost { net: b.net.clone(), nick: pn.clone(), chan: Some("#italia".into()), why: LostWhy::Kicked });
+    w.ev(Event::PuppetLost {
+        net: b.net.clone(),
+        nick: pn.clone(),
+        chan: Some("#italia".into()),
+        why: LostWhy::Kicked,
+    });
     w.advance(30);
     assert!(says(&w.say(&a, "alice", "di nuovo")).is_empty());
     w.advance(11 * 60);
     assert_eq!(says(&w.say(&a, "alice", "scusate")).len(), 1);
 
     // Ban: permanent, written into the owner's block list.
-    let pn = w.e.puppet_nick(&b.net, 2).or_else(|| w.e.puppet_nick(&b.net, 1)).unwrap();
-    w.ev(Event::PuppetLost { net: b.net.clone(), nick: pn, chan: Some("#italia".into()), why: LostWhy::Banned });
+    let pn =
+        w.e.puppet_nick(&b.net, 2)
+            .or_else(|| w.e.puppet_nick(&b.net, 1))
+            .unwrap();
+    w.ev(Event::PuppetLost {
+        net: b.net.clone(),
+        nick: pn,
+        chan: Some("#italia".into()),
+        why: LostWhy::Banned,
+    });
     w.advance(3600 * 24);
     assert!(says(&w.say(&a, "alice", "sono tornata")).is_empty());
-    assert!(w.e.member(&b).unwrap().policy.block.iter().any(|m| m.starts_with("*!*cha-")));
+    assert!(w
+        .e
+        .member(&b)
+        .unwrap()
+        .policy
+        .block
+        .iter()
+        .any(|m| m.starts_with("*!*cha-")));
 }
 
 #[test]
@@ -369,8 +479,15 @@ fn pause_and_unlink_stop_everything_at_once() {
 fn mute_stops_hearing_one_channel_only() {
     let (mut w, a, b) = World::linked_live();
     w.cmd("azzurra", "opB", "MUTE #italia chatnet #italy");
-    assert!(says(&w.say(&a, "alice", "ciao")).is_empty(), "azzurra no longer hears chatnet");
-    assert_eq!(says(&w.say(&b, "bob", "ciao")).len(), 1, "but chatnet still hears azzurra");
+    assert!(
+        says(&w.say(&a, "alice", "ciao")).is_empty(),
+        "azzurra no longer hears chatnet"
+    );
+    assert_eq!(
+        says(&w.say(&b, "bob", "ciao")).len(),
+        1,
+        "but chatnet still hears azzurra"
+    );
 }
 
 #[test]
@@ -382,9 +499,16 @@ fn settings_are_validated_and_audited() {
     assert!(r[0].contains("unknown setting"), "{r:?}");
     w.cmd("azzurra", "opB", "SET #italia max-line 200");
     let r = replies(&w.cmd("azzurra", "opB", "AUDIT #italia 5"));
-    assert!(r.iter().any(|l| l.contains("opB") && l.contains("max-line")), "{r:?}");
+    assert!(
+        r.iter()
+            .any(|l| l.contains("opB") && l.contains("max-line")),
+        "{r:?}"
+    );
     let r = replies(&w.cmd("azzurra", "opB", "STATUS #italia"));
-    assert!(r.iter().any(|l| l.contains("is LIVE")) && r.iter().any(|l| l.contains("linked with")), "{r:?}");
+    assert!(
+        r.iter().any(|l| l.contains("is LIVE")) && r.iter().any(|l| l.contains("linked with")),
+        "{r:?}"
+    );
     let _ = b;
 }
 
@@ -404,7 +528,10 @@ fn service_bot_transport_works_without_extra_connections() {
     w.cmd("azzurra", "opB", "LIVE #italia");
     w.advance(600);
     let acts = w.say(&a, "alice", "ciao");
-    assert!(!has_spawn(&acts), "no puppet connections on a service-bot network");
+    assert!(
+        !has_spawn(&acts),
+        "no puppet connections on a service-bot network"
+    );
     let s = says(&acts);
     assert_eq!(s[0].1, Via::Service);
     assert_eq!(s[0].3, "<alice|cha> ciao");
@@ -415,7 +542,11 @@ fn network_down_removes_its_people_and_tells_the_neighbours() {
     let (mut w, a, b) = World::linked_live();
     w.cmd("azzurra", "opB", "SET #italia presence full");
     w.cmd("chatnet", "opA", "SET #italy presence full");
-    w.ev(Event::Join { chan: b.clone(), user: user("zed"), role: Role::Normal });
+    w.ev(Event::Join {
+        chan: b.clone(),
+        user: user("zed"),
+        role: Role::Normal,
+    });
     assert!(w.e.puppet_count(&a.net) >= 1);
     let acts = w.ev(Event::NetDown { net: b.net.clone() });
     assert!(acts.iter().any(|x| matches!(x, Action::Notice { chan, text } if chan == &a && text.contains("disconnected"))));
@@ -440,17 +571,37 @@ fn service_kicked_from_a_channel_pauses_that_link_safely() {
 fn nick_changes_follow_and_collisions_never_clash() {
     let (mut w, a, b) = World::linked_live();
     // Someone on azzurra already uses the nick our puppet would want.
-    w.sync(&b, &[("opB", Role::Op), ("bob", Role::Normal), ("alice|cha", Role::Normal)]);
+    w.sync(
+        &b,
+        &[
+            ("opB", Role::Op),
+            ("bob", Role::Normal),
+            ("alice|cha", Role::Normal),
+        ],
+    );
     let acts = w.cmd("azzurra", "opB", "SET #italia presence full");
     let face = acts.iter().find_map(|x| match x {
-        Action::SpawnPuppet { face, net, .. } if net == &b.net && face.nick.starts_with("alice") => Some(face.nick.clone()),
+        Action::SpawnPuppet { face, net, .. }
+            if net == &b.net && face.nick.starts_with("alice") =>
+        {
+            Some(face.nick.clone())
+        }
         _ => None,
     });
     let face = face.expect("alice gets a puppet on azzurra");
-    assert_ne!(face, "alice|cha", "must not take a nick a real user already has");
+    assert_ne!(
+        face, "alice|cha",
+        "must not take a nick a real user already has"
+    );
     assert!(face.ends_with("|cha"));
-    let acts = w.ev(Event::NickChange { net: a.net.clone(), old: "alice".into(), new: "alicia".into() });
-    assert!(acts.iter().any(|x| matches!(x, Action::PuppetNick { nick, .. } if nick.starts_with("alicia"))));
+    let acts = w.ev(Event::NickChange {
+        net: a.net.clone(),
+        old: "alice".into(),
+        new: "alicia".into(),
+    });
+    assert!(acts
+        .iter()
+        .any(|x| matches!(x, Action::PuppetNick { nick, .. } if nick.starts_with("alicia"))));
 }
 
 #[test]
@@ -458,7 +609,11 @@ fn bots_are_not_relayed_unless_enabled() {
     let (mut w, a, _b) = World::linked_live();
     let mut bot = user("robby");
     bot.is_bot = true;
-    w.ev(Event::Join { chan: a.clone(), user: bot, role: Role::Normal });
+    w.ev(Event::Join {
+        chan: a.clone(),
+        user: bot,
+        role: Role::Normal,
+    });
     w.advance(300);
     assert!(says(&w.say(&a, "robby", "beep")).is_empty());
 }
@@ -468,7 +623,11 @@ fn puppet_cap_makes_room_by_dropping_the_quietest() {
     let (mut w, a, b) = World::linked_live();
     w.e.cfg.networks.get_mut(&b.net).unwrap().max_puppets = 2;
     for n in ["u1", "u2", "u3"] {
-        w.ev(Event::Join { chan: a.clone(), user: user(n), role: Role::Normal });
+        w.ev(Event::Join {
+            chan: a.clone(),
+            user: user(n),
+            role: Role::Normal,
+        });
     }
     w.advance(300);
     for n in ["u1", "u2", "u3"] {
@@ -520,7 +679,11 @@ fn replies_follow_the_channel_language() {
     assert!(r[0].contains("non è collegato"), "{r:?}");
     w.cmd("chatnet", "opA", "LINK #italy azzurra #italia");
     let acts = w.cmd("azzurra", "opB", "ACCEPT #italia chatnet #italy");
-    assert!(acts.iter().any(|x| matches!(x, Action::Notice { text, .. } if text.contains("ora è collegato"))), "{acts:?}");
+    assert!(
+        acts.iter()
+            .any(|x| matches!(x, Action::Notice { text, .. } if text.contains("ora è collegato"))),
+        "{acts:?}"
+    );
     // Errors are Italian too.
     let r = replies(&w.cmd("chatnet", "nobody", "STATUS #italy"));
     assert!(r[0].contains("Non ti vedo"), "{r:?}");
@@ -536,7 +699,11 @@ fn replies_follow_the_channel_language() {
     let r = replies(&w.cmd("chatnet", "opA", "SET #italy lang fr"));
     assert!(r[0].contains("use it or en"), "{r:?}");
     let r = replies(&w.cmd("chatnet", "opA", "STATUS #italy"));
-    assert!(r.iter().any(|l| l.contains("collegato con") && l.contains("live")), "{r:?}");
+    assert!(
+        r.iter()
+            .any(|l| l.contains("collegato con") && l.contains("live")),
+        "{r:?}"
+    );
     assert!(r.iter().any(|l| l.contains("righe in entrata")), "{r:?}");
 }
 
@@ -545,25 +712,50 @@ fn every_message_exists_in_both_languages() {
     use itl_core::msg::Msg;
     use itl_core::policy::Lang;
     let all = [
-        Msg::NotInChannel { chan: "#c", svc: "S" },
+        Msg::NotInChannel {
+            chan: "#c",
+            svc: "S",
+        },
         Msg::NotSeen { chan: "#c" },
         Msg::NotOp { chan: "#c" },
         Msg::NeedAccount,
         Msg::NotLinkedYet { chan: "#c" },
         Msg::SameNetwork,
-        Msg::TheirServiceMissing { chan: "#c", net: "n", svc: "S" },
+        Msg::TheirServiceMissing {
+            chan: "#c",
+            net: "n",
+            svc: "S",
+        },
         Msg::AlreadyLinked,
         Msg::BothInLinks,
         Msg::OnePerNet { net: "n" },
-        Msg::AskNotice { mine_chan: "#a", mine_net: "n", other_chan: "#b", svc: "S" },
+        Msg::AskNotice {
+            mine_chan: "#a",
+            mine_net: "n",
+            other_chan: "#b",
+            svc: "S",
+        },
         Msg::RequestSent { other: "#b" },
-        Msg::NoPending { mine: "#a", net: "n", chan: "#b" },
+        Msg::NoPending {
+            mine: "#a",
+            net: "n",
+            chan: "#b",
+        },
         Msg::Accepted,
         Msg::NoSuchRequest,
         Msg::RequestRemoved,
-        Msg::Admitted { svc: "S", chan: "#a" },
-        Msg::AdmittedOther { chan: "#a", label: "L" },
-        Msg::LeftNotice { chan: "#a", net: "n" },
+        Msg::Admitted {
+            svc: "S",
+            chan: "#a",
+        },
+        Msg::AdmittedOther {
+            chan: "#a",
+            label: "L",
+        },
+        Msg::LeftNotice {
+            chan: "#a",
+            net: "n",
+        },
         Msg::Unlinked { chan: "#a" },
         Msg::NotLinked { chan: "#a" },
         Msg::Paused { chan: "#a" },
@@ -571,14 +763,30 @@ fn every_message_exists_in_both_languages() {
         Msg::ModeLive { chan: "#a" },
         Msg::ModePreview { chan: "#a" },
         Msg::ModeOff { chan: "#a" },
-        Msg::SetOk { chan: "#a", key: "k", value: "v" },
-        Msg::Blocked { chan: "#a", mask: "m" },
-        Msg::Unblocked { chan: "#a", mask: "m" },
+        Msg::SetOk {
+            chan: "#a",
+            key: "k",
+            value: "v",
+        },
+        Msg::Blocked {
+            chan: "#a",
+            mask: "m",
+        },
+        Msg::Unblocked {
+            chan: "#a",
+            mask: "m",
+        },
         Msg::NotBlocked { mask: "m" },
         Msg::BlockFull,
         Msg::BadMask,
-        Msg::Muted { chan: "#a", other: "o" },
-        Msg::Unmuted { chan: "#a", other: "o" },
+        Msg::Muted {
+            chan: "#a",
+            other: "o",
+        },
+        Msg::Unmuted {
+            chan: "#a",
+            other: "o",
+        },
         Msg::SampleNone,
         Msg::SampleHeader { n: 3, chan: "#a" },
         Msg::AuditNone,

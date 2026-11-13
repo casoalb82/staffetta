@@ -3,8 +3,8 @@
 //! actions into IRC lines.
 
 pub mod conn;
-pub mod pool;
 mod network;
+pub mod pool;
 mod puppet;
 
 pub use network::{run_network, Inbound, NetSpec, ToNet};

@@ -24,7 +24,10 @@ struct Persisted {
 }
 
 fn now_ms() -> u64 {
-    SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_millis() as u64).unwrap_or(0)
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or(0)
 }
 
 fn log(msg: &str) {
@@ -39,7 +42,9 @@ struct Store {
 impl Store {
     fn new(dir: &Path) -> Result<Store> {
         std::fs::create_dir_all(dir).with_context(|| format!("creating {}", dir.display()))?;
-        Ok(Store { dir: dir.to_path_buf() })
+        Ok(Store {
+            dir: dir.to_path_buf(),
+        })
     }
 
     fn state_path(&self) -> PathBuf {
@@ -69,7 +74,11 @@ impl Store {
             "actor": r.actor,
             "what": r.what,
         });
-        if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(self.dir.join("audit.jsonl")) {
+        if let Ok(mut f) = std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(self.dir.join("audit.jsonl"))
+        {
             let _ = writeln!(f, "{line}");
         }
     }
@@ -81,7 +90,8 @@ pub async fn run(cfg: Config, mut shutdown: mpsc::UnboundedReceiver<()>) -> Resu
     let mut persisted = store.load()?;
     let mut engine = Engine::restore(cfg.engine_config(), std::mem::take(&mut persisted.engine));
 
-    let shared: crate::status::Shared = std::sync::Arc::new(std::sync::Mutex::new(engine.overview()));
+    let shared: crate::status::Shared =
+        std::sync::Arc::new(std::sync::Mutex::new(engine.overview()));
     if let Some(l) = &cfg.status_listen {
         let addr = crate::status::serve(l.parse()?, shared.clone()).await?;
         log(&format!("status page on http://{addr}/"));
@@ -92,7 +102,11 @@ pub async fn run(cfg: Config, mut shutdown: mpsc::UnboundedReceiver<()>) -> Resu
         let (tx, rx) = mpsc::unbounded_channel();
         nets.insert(spec.id.clone(), tx.clone());
         // Channels to (re)join: those in links and those we were invited to.
-        let mut chans: BTreeSet<String> = persisted.invited.get(&spec.id.0).cloned().unwrap_or_default();
+        let mut chans: BTreeSet<String> = persisted
+            .invited
+            .get(&spec.id.0)
+            .cloned()
+            .unwrap_or_default();
         for k in engine.wanted_channels() {
             if k.net == spec.id {
                 chans.insert(k.chan);
@@ -101,7 +115,10 @@ pub async fn run(cfg: Config, mut shutdown: mpsc::UnboundedReceiver<()>) -> Resu
         for c in chans {
             let _ = tx.send(ToNet::ServiceJoin(c));
         }
-        log(&format!("network {} -> {}:{} (tls={})", spec.id, spec.host, spec.port, spec.tls));
+        log(&format!(
+            "network {} -> {}:{} (tls={})",
+            spec.id, spec.host, spec.port, spec.tls
+        ));
         tokio::spawn(run_network(spec, rx, in_tx.clone()));
     }
     drop(in_tx);
@@ -152,7 +169,10 @@ pub async fn run(cfg: Config, mut shutdown: mpsc::UnboundedReceiver<()>) -> Resu
             *g = engine.overview();
         }
         if changed {
-            let p = Persisted { engine: engine.snapshot(), invited: persisted.invited.clone() };
+            let p = Persisted {
+                engine: engine.snapshot(),
+                invited: persisted.invited.clone(),
+            };
             if let Err(e) = store.save(&p) {
                 log(&format!("cannot save state: {e:#}"));
             }
@@ -171,19 +191,62 @@ fn dispatch(nets: &HashMap<NetId, mpsc::UnboundedSender<ToNet>>, store: &Store, 
     match a {
         Action::SpawnPuppet { net, uid, face } => send(&net, ToNet::SpawnPuppet { uid, face }),
         Action::PuppetJoin { net, uid, chan } => send(&net, ToNet::PuppetJoin { uid, chan }),
-        Action::PuppetPart { net, uid, chan, reason } => send(&net, ToNet::PuppetPart { uid, chan, reason }),
+        Action::PuppetPart {
+            net,
+            uid,
+            chan,
+            reason,
+        } => send(&net, ToNet::PuppetPart { uid, chan, reason }),
         Action::PuppetQuit { net, uid, reason } => send(&net, ToNet::PuppetQuit { uid, reason }),
         Action::PuppetNick { net, uid, nick } => send(&net, ToNet::PuppetNick { uid, nick }),
-        Action::Say { net, via, chan, kind, text } => match via {
-            Via::Puppet(uid) => send(&net, ToNet::PuppetSay { uid, chan, kind, text }),
-            Via::Service => send(&net, ToNet::ServiceSay { target: chan, text, notice: false }),
+        Action::Say {
+            net,
+            via,
+            chan,
+            kind,
+            text,
+        } => match via {
+            Via::Puppet(uid) => send(
+                &net,
+                ToNet::PuppetSay {
+                    uid,
+                    chan,
+                    kind,
+                    text,
+                },
+            ),
+            Via::Service => send(
+                &net,
+                ToNet::ServiceSay {
+                    target: chan,
+                    text,
+                    notice: false,
+                },
+            ),
         },
-        Action::Reply { net, nick, text } => send(&net, ToNet::ServiceSay { target: nick, text, notice: true }),
-        Action::Notice { chan, text } => send(&chan.net.clone(), ToNet::ServiceSay { target: chan.chan, text, notice: true }),
+        Action::Reply { net, nick, text } => send(
+            &net,
+            ToNet::ServiceSay {
+                target: nick,
+                text,
+                notice: true,
+            },
+        ),
+        Action::Notice { chan, text } => send(
+            &chan.net.clone(),
+            ToNet::ServiceSay {
+                target: chan.chan,
+                text,
+                notice: true,
+            },
+        ),
         Action::Audit(r) => {
             log(&format!(
                 "audit {} {}: {}",
-                r.chan.as_ref().map(|c| c.to_string()).unwrap_or_else(|| "-".into()),
+                r.chan
+                    .as_ref()
+                    .map(|c| c.to_string())
+                    .unwrap_or_else(|| "-".into()),
                 r.actor,
                 r.what
             ));

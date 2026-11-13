@@ -29,7 +29,12 @@ pub struct NetSpec {
 
 impl NetSpec {
     fn target(&self, source: Option<IpAddr>) -> Target {
-        Target { host: self.host.clone(), port: self.port, tls: self.tls, source_ip: source }
+        Target {
+            host: self.host.clone(),
+            port: self.port,
+            tls: self.tls,
+            source_ip: source,
+        }
     }
 }
 
@@ -38,13 +43,38 @@ impl NetSpec {
 pub enum ToNet {
     ServiceJoin(String),
     ServicePart(String),
-    ServiceSay { target: String, text: String, notice: bool },
-    SpawnPuppet { uid: Uid, face: Face },
-    PuppetJoin { uid: Uid, chan: String },
-    PuppetPart { uid: Uid, chan: String, reason: String },
-    PuppetQuit { uid: Uid, reason: String },
-    PuppetNick { uid: Uid, nick: String },
-    PuppetSay { uid: Uid, chan: String, kind: SayKind, text: String },
+    ServiceSay {
+        target: String,
+        text: String,
+        notice: bool,
+    },
+    SpawnPuppet {
+        uid: Uid,
+        face: Face,
+    },
+    PuppetJoin {
+        uid: Uid,
+        chan: String,
+    },
+    PuppetPart {
+        uid: Uid,
+        chan: String,
+        reason: String,
+    },
+    PuppetQuit {
+        uid: Uid,
+        reason: String,
+    },
+    PuppetNick {
+        uid: Uid,
+        nick: String,
+    },
+    PuppetSay {
+        uid: Uid,
+        chan: String,
+        kind: SayKind,
+        text: String,
+    },
 }
 
 /// Things a network reports back.
@@ -52,7 +82,11 @@ pub enum ToNet {
 pub enum Inbound {
     Core(Event),
     /// Someone invited the service into a channel; it has joined.
-    Invited { net: NetId, chan: String, by: String },
+    Invited {
+        net: NetId,
+        chan: String,
+        by: String,
+    },
     Connected(NetId),
     Log(String),
 }
@@ -93,17 +127,26 @@ struct Session {
 }
 
 /// Run one network forever: connect, serve, reconnect with back-off.
-pub async fn run_network(spec: NetSpec, mut cmds: UnboundedReceiver<ToNet>, events: UnboundedSender<Inbound>) {
+pub async fn run_network(
+    spec: NetSpec,
+    mut cmds: UnboundedReceiver<ToNet>,
+    events: UnboundedSender<Inbound>,
+) {
     let mut want: BTreeMap<String, String> = BTreeMap::new();
     let mut backoff = 3u64;
     loop {
         match session(&spec, &mut cmds, &events, &mut want).await {
             Ok(()) => backoff = 3,
             Err(e) => {
-                let _ = events.send(Inbound::Log(format!("[{}] connection failed: {e:#}", spec.id)));
+                let _ = events.send(Inbound::Log(format!(
+                    "[{}] connection failed: {e:#}",
+                    spec.id
+                )));
             }
         }
-        let _ = events.send(Inbound::Core(Event::NetDown { net: spec.id.clone() }));
+        let _ = events.send(Inbound::Core(Event::NetDown {
+            net: spec.id.clone(),
+        }));
         // While down, keep the wanted-channel list current and drop the rest.
         let sleep = tokio::time::sleep(Duration::from_secs(backoff));
         tokio::pin!(sleep);
@@ -131,7 +174,12 @@ async fn session(
     let (mut rd, mut wr) = conn::connect(&spec.target(None)).await?;
     wr.send("CAP LS 302").await?;
     wr.send(&format!("NICK {}", spec.service_nick)).await?;
-    wr.send(&format!("USER {} 0 * :{}", spec.service_nick.to_ascii_lowercase(), spec.service_realname)).await?;
+    wr.send(&format!(
+        "USER {} 0 * :{}",
+        spec.service_nick.to_ascii_lowercase(),
+        spec.service_realname
+    ))
+    .await?;
 
     let mut s = Session {
         spec: spec.clone(),
@@ -246,27 +294,51 @@ impl Session {
                     wr.send(&format!("PART {ch} :Ita Link")).await?;
                 }
             }
-            ToNet::ServiceSay { target, text, notice } => {
-                wr.send(&format!("{} {target} :{text}", if notice { "NOTICE" } else { "PRIVMSG" })).await?;
+            ToNet::ServiceSay {
+                target,
+                text,
+                notice,
+            } => {
+                wr.send(&format!(
+                    "{} {target} :{text}",
+                    if notice { "NOTICE" } else { "PRIVMSG" }
+                ))
+                .await?;
             }
             ToNet::SpawnPuppet { uid, face } => {
                 let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
                 self.puppets.insert(uid, tx);
                 let source = match self.spec.puppet_pool {
-                    Some((prefix, len)) => Some(IpAddr::V6(crate::pool::pool_addr(prefix, len, uid))),
+                    Some((prefix, len)) => {
+                        Some(IpAddr::V6(crate::pool::pool_addr(prefix, len, uid)))
+                    }
                     None => self.spec.puppet_source,
                 };
                 let t = self.spec.target(source);
-                tokio::spawn(run_puppet(t, self.spec.id.clone(), uid, face, rx, self.events.clone()));
+                tokio::spawn(run_puppet(
+                    t,
+                    self.spec.id.clone(),
+                    uid,
+                    face,
+                    rx,
+                    self.events.clone(),
+                ));
             }
             ToNet::PuppetJoin { uid, chan } => self.to_puppet(uid, PuppetCmd::Join(chan)),
-            ToNet::PuppetPart { uid, chan, reason } => self.to_puppet(uid, PuppetCmd::Part(chan, reason)),
+            ToNet::PuppetPart { uid, chan, reason } => {
+                self.to_puppet(uid, PuppetCmd::Part(chan, reason))
+            }
             ToNet::PuppetQuit { uid, reason } => {
                 self.to_puppet(uid, PuppetCmd::Quit(reason));
                 self.puppets.remove(&uid);
             }
             ToNet::PuppetNick { uid, nick } => self.to_puppet(uid, PuppetCmd::Nick(nick)),
-            ToNet::PuppetSay { uid, chan, kind, text } => self.to_puppet(uid, PuppetCmd::Say { chan, kind, text }),
+            ToNet::PuppetSay {
+                uid,
+                chan,
+                kind,
+                text,
+            } => self.to_puppet(uid, PuppetCmd::Say { chan, kind, text }),
         }
         Ok(())
     }
@@ -277,7 +349,11 @@ impl Session {
         }
     }
 
-    async fn on_join(&mut self, m: &itl_proto::RawMessage, wr: &mut conn::LineWriter) -> Result<()> {
+    async fn on_join(
+        &mut self,
+        m: &itl_proto::RawMessage,
+        wr: &mut conn::LineWriter,
+    ) -> Result<()> {
         let Some(p) = &m.prefix else { return Ok(()) };
         let chan = m.params.first().cloned().unwrap_or_default();
         let fc = fold(&chan);
@@ -286,23 +362,41 @@ impl Session {
             self.who_buf.insert(fc, Vec::new());
             if self.whox {
                 // t=token c=channel u=user h=host n=nick f=flags a=account
-                wr.send(&format!("WHO {chan} %tcuhnfa,{WHOX_TOKEN}")).await?;
+                wr.send(&format!("WHO {chan} %tcuhnfa,{WHOX_TOKEN}"))
+                    .await?;
             } else {
                 wr.send(&format!("WHO {chan}")).await?;
             }
             return Ok(());
         }
-        let Some(map) = self.members.get_mut(&fc) else { return Ok(()) };
-        let mut seen = SeenUser::new(&p.name, p.user.as_deref().unwrap_or("*"), p.host.as_deref().unwrap_or("*"));
+        let Some(map) = self.members.get_mut(&fc) else {
+            return Ok(());
+        };
+        let mut seen = SeenUser::new(
+            &p.name,
+            p.user.as_deref().unwrap_or("*"),
+            p.host.as_deref().unwrap_or("*"),
+        );
         // extended-join: JOIN #chan account :realname
         if let Some(acc) = m.params.get(1) {
             if acc != "*" {
                 seen.account = Some(acc.clone());
             }
         }
-        map.insert(fold(&p.name), Member { seen: seen.clone(), op: false, voice: false });
+        map.insert(
+            fold(&p.name),
+            Member {
+                seen: seen.clone(),
+                op: false,
+                voice: false,
+            },
+        );
         let key = self.key(&chan);
-        self.emit(Event::Join { chan: key, user: seen, role: Role::Normal });
+        self.emit(Event::Join {
+            chan: key,
+            user: seen,
+            role: Role::Normal,
+        });
         Ok(())
     }
 
@@ -310,12 +404,22 @@ impl Session {
         let chan = fold(chan);
         // Keep an account we already learned from extended-join.
         if seen.account.is_none() {
-            if let Some(old) = self.members.get(&chan).and_then(|c| c.get(&fold(&seen.nick))) {
+            if let Some(old) = self
+                .members
+                .get(&chan)
+                .and_then(|c| c.get(&fold(&seen.nick)))
+            {
                 seen.account = old.seen.account.clone();
             }
         }
         let (op, voice) = (flags.contains('@'), flags.contains('+'));
-        let role = if op { Role::Op } else if voice { Role::Voice } else { Role::Normal };
+        let role = if op {
+            Role::Op
+        } else if voice {
+            Role::Voice
+        } else {
+            Role::Normal
+        };
         if let Some(buf) = self.who_buf.get_mut(&chan) {
             buf.push((seen, role));
         }
@@ -348,13 +452,19 @@ impl Session {
     fn on_who_end(&mut self, m: &itl_proto::RawMessage) {
         let Some(chan) = m.params.get(1) else { return };
         let fc = fold(chan);
-        let Some(users) = self.who_buf.remove(&fc) else { return };
+        let Some(users) = self.who_buf.remove(&fc) else {
+            return;
+        };
         let map = self.members.entry(fc).or_default();
         map.clear();
         for (seen, role) in &users {
             map.insert(
                 fold(&seen.nick),
-                Member { seen: seen.clone(), op: *role == Role::Op, voice: *role == Role::Voice },
+                Member {
+                    seen: seen.clone(),
+                    op: *role == Role::Op,
+                    voice: *role == Role::Voice,
+                },
             );
         }
         let key = self.key(chan);
@@ -371,7 +481,10 @@ impl Session {
         if let Some(map) = self.members.get_mut(&fc) {
             if map.remove(&fold(nick)).is_some() {
                 let key = self.key(&chan);
-                self.emit(Event::Part { chan: key, nick: nick.to_string() });
+                self.emit(Event::Part {
+                    chan: key,
+                    nick: nick.to_string(),
+                });
             }
         }
     }
@@ -383,7 +496,10 @@ impl Session {
             found |= map.remove(&f).is_some();
         }
         if found {
-            self.emit(Event::Quit { net: self.spec.id.clone(), nick: nick.to_string() });
+            self.emit(Event::Quit {
+                net: self.spec.id.clone(),
+                nick: nick.to_string(),
+            });
         }
     }
 
@@ -403,7 +519,11 @@ impl Session {
             }
         }
         if found {
-            self.emit(Event::NickChange { net: self.spec.id.clone(), old: old.to_string(), new });
+            self.emit(Event::NickChange {
+                net: self.spec.id.clone(),
+                old: old.to_string(),
+                new,
+            });
         }
     }
 
@@ -415,14 +535,26 @@ impl Session {
         if self.is_me(&victim) {
             self.members.remove(&fc);
             self.emit(Event::ServiceLeft { chan: key });
-        } else if self.members.get_mut(&fc).and_then(|c| c.remove(&fold(&victim))).is_some() {
-            self.emit(Event::Part { chan: key, nick: victim });
+        } else if self
+            .members
+            .get_mut(&fc)
+            .and_then(|c| c.remove(&fold(&victim)))
+            .is_some()
+        {
+            self.emit(Event::Part {
+                chan: key,
+                nick: victim,
+            });
         }
     }
 
     fn on_account(&mut self, m: &itl_proto::RawMessage, nick: &str) {
         let acc = m.params.first().cloned().unwrap_or_default();
-        let account = if acc == "*" || acc.is_empty() { None } else { Some(acc) };
+        let account = if acc == "*" || acc.is_empty() {
+            None
+        } else {
+            Some(acc)
+        };
         let f = fold(nick);
         let mut found = false;
         for map in self.members.values_mut() {
@@ -432,7 +564,11 @@ impl Session {
             }
         }
         if found {
-            self.emit(Event::AccountChange { net: self.spec.id.clone(), nick: nick.to_string(), account });
+            self.emit(Event::AccountChange {
+                net: self.spec.id.clone(),
+                nick: nick.to_string(),
+                account,
+            });
         }
     }
 
@@ -451,11 +587,23 @@ impl Session {
                 'o' | 'v' => {
                     let Some(nick) = args.next() else { break };
                     let fc = fold(&chan);
-                    if let Some(mem) = self.members.get_mut(&fc).and_then(|x| x.get_mut(&fold(nick))) {
-                        if c == 'o' { mem.op = plus } else { mem.voice = plus }
+                    if let Some(mem) = self
+                        .members
+                        .get_mut(&fc)
+                        .and_then(|x| x.get_mut(&fold(nick)))
+                    {
+                        if c == 'o' {
+                            mem.op = plus
+                        } else {
+                            mem.voice = plus
+                        }
                         let role = mem.role();
                         let key = self.key(&chan);
-                        self.emit(Event::RoleChange { chan: key, nick: nick.clone(), role });
+                        self.emit(Event::RoleChange {
+                            chan: key,
+                            nick: nick.clone(),
+                            role,
+                        });
                     }
                 }
                 'h' | 'a' | 'q' | 'b' | 'e' | 'I' | 'k' => {
@@ -485,19 +633,37 @@ impl Session {
                 return; // other CTCP
             }
             let key = self.key(&target);
-            self.emit(Event::Say { chan: key, nick: p.name.clone(), text: body, kind });
+            self.emit(Event::Say {
+                chan: key,
+                nick: p.name.clone(),
+                text: body,
+                kind,
+            });
         } else if self.is_me(&target) {
-            self.emit(Event::Command { net: self.spec.id.clone(), nick: p.name.clone(), text });
+            self.emit(Event::Command {
+                net: self.spec.id.clone(),
+                nick: p.name.clone(),
+                text,
+            });
         }
     }
 
-    async fn on_invite(&mut self, m: &itl_proto::RawMessage, by: &str, wr: &mut conn::LineWriter) -> Result<()> {
+    async fn on_invite(
+        &mut self,
+        m: &itl_proto::RawMessage,
+        by: &str,
+        wr: &mut conn::LineWriter,
+    ) -> Result<()> {
         let target = m.params.first().cloned().unwrap_or_default();
         let chan = m.params.get(1).cloned().unwrap_or_default();
         if self.is_me(&target) && chan.starts_with(['#', '&']) {
             self.want.insert(fold(&chan), chan.clone());
             wr.send(&format!("JOIN {chan}")).await?;
-            let _ = self.events.send(Inbound::Invited { net: self.spec.id.clone(), chan, by: by.to_string() });
+            let _ = self.events.send(Inbound::Invited {
+                net: self.spec.id.clone(),
+                chan,
+                by: by.to_string(),
+            });
         }
         Ok(())
     }

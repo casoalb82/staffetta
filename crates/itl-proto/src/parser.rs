@@ -189,7 +189,10 @@ mod tests {
     fn message_with_tags_including_escaped_values() {
         // raw tag value literally: a\sb\:c\\d  -> unescaped: "a b;c\d"
         let msg = parse(r"@foo=a\sb\:c\\d;flag :nick!u@h PRIVMSG #c :hi").unwrap();
-        assert_eq!(msg.tags.get("foo").cloned().flatten().as_deref(), Some("a b;c\\d"));
+        assert_eq!(
+            msg.tags.get("foo").cloned().flatten().as_deref(),
+            Some("a b;c\\d")
+        );
         assert_eq!(msg.tags.get("flag").cloned(), Some(None));
         assert_eq!(msg.command, "PRIVMSG");
         assert_eq!(msg.params, vec!["#c", "hi"]);
@@ -199,7 +202,10 @@ mod tests {
     fn cap_ls_multi_value_trailing() {
         let msg = parse("CAP * LS :multi-prefix sasl message-tags").unwrap();
         assert_eq!(msg.command, "CAP");
-        assert_eq!(msg.params, vec!["*", "LS", "multi-prefix sasl message-tags"]);
+        assert_eq!(
+            msg.params,
+            vec!["*", "LS", "multi-prefix sasl message-tags"]
+        );
     }
 
     #[test]

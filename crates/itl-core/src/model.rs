@@ -164,7 +164,10 @@ mod tests {
 
     #[test]
     fn chankey_is_case_insensitive() {
-        assert_eq!(ChanKey::new("ChatNet", "#Italy"), ChanKey::new("chatnet", "#ITALY"));
+        assert_eq!(
+            ChanKey::new("ChatNet", "#Italy"),
+            ChanKey::new("chatnet", "#ITALY")
+        );
     }
 
     #[test]

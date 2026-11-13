@@ -44,11 +44,24 @@ pub fn render_html(o: &Overview) -> String {
                 )
             })
             .collect();
-        let hidden = if l.hidden > 0 { format!("<li class=\"muted\">+ {} channel(s) not listed</li>", l.hidden) } else { String::new() };
-        rows.push_str(&format!("<section class=\"link\"><ul>{}{}</ul></section>", chans.join(""), hidden));
+        let hidden = if l.hidden > 0 {
+            format!(
+                "<li class=\"muted\">+ {} channel(s) not listed</li>",
+                l.hidden
+            )
+        } else {
+            String::new()
+        };
+        rows.push_str(&format!(
+            "<section class=\"link\"><ul>{}{}</ul></section>",
+            chans.join(""),
+            hidden
+        ));
     }
     if rows.is_empty() {
-        rows.push_str("<p class=\"muted\">No public links yet. / Nessun link pubblico per ora.</p>");
+        rows.push_str(
+            "<p class=\"muted\">No public links yet. / Nessun link pubblico per ora.</p>",
+        );
     }
     format!(
         "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">\
@@ -88,12 +101,20 @@ async fn handle(mut s: TcpStream, shared: Shared) {
     let (method, path) = (parts.next().unwrap_or(""), parts.next().unwrap_or(""));
     let path = path.split('?').next().unwrap_or("");
     let reply = if method != "GET" && method != "HEAD" {
-        response("405 Method Not Allowed", "text/plain; charset=utf-8", "read-only")
+        response(
+            "405 Method Not Allowed",
+            "text/plain; charset=utf-8",
+            "read-only",
+        )
     } else {
         let o = shared.lock().map(|g| g.clone()).unwrap_or_default();
         match path {
             "/" | "/index.html" => response("200 OK", "text/html; charset=utf-8", &render_html(&o)),
-            "/status.json" => response("200 OK", "application/json", &serde_json::to_string(&o).unwrap_or_default()),
+            "/status.json" => response(
+                "200 OK",
+                "application/json",
+                &serde_json::to_string(&o).unwrap_or_default(),
+            ),
             _ => response("404 Not Found", "text/plain; charset=utf-8", "not found"),
         }
     };
@@ -107,7 +128,9 @@ pub async fn serve(listen: SocketAddr, shared: Shared) -> Result<SocketAddr> {
     let addr = l.local_addr()?;
     tokio::spawn(async move {
         loop {
-            let Ok((sock, _)) = l.accept().await else { break };
+            let Ok((sock, _)) = l.accept().await else {
+                break;
+            };
             let sh = shared.clone();
             tokio::spawn(handle(sock, sh));
         }
@@ -122,17 +145,31 @@ mod tests {
 
     #[test]
     fn escapes_everything_dangerous() {
-        assert_eq!(escape("<script>\"x\"&'"), "&lt;script&gt;&quot;x&quot;&amp;&#39;");
+        assert_eq!(
+            escape("<script>\"x\"&'"),
+            "&lt;script&gt;&quot;x&quot;&amp;&#39;"
+        );
     }
 
     #[test]
     fn page_shows_listed_channels_only_and_escapes_them() {
         let o = Overview {
             links: vec![LinkView {
-                channels: vec![ChanView { network: "A <b>".into(), name: "#italy".into(), mode: "live".into(), paused: false }],
+                channels: vec![ChanView {
+                    network: "A <b>".into(),
+                    name: "#italy".into(),
+                    mode: "live".into(),
+                    paused: false,
+                }],
                 hidden: 1,
             }],
-            totals: Totals { links: 1, channels: 2, live_channels: 1, puppets: 3, lines_relayed: 42 },
+            totals: Totals {
+                links: 1,
+                channels: 2,
+                live_channels: 1,
+                puppets: 3,
+                lines_relayed: 42,
+            },
         };
         let h = render_html(&o);
         assert!(h.contains("#italy") && h.contains("A &lt;b&gt;") && !h.contains("A <b>"));

@@ -14,13 +14,28 @@ use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 pub enum PuppetCmd {
     Join(String),
     Part(String, String),
-    Say { chan: String, kind: SayKind, text: String },
+    Say {
+        chan: String,
+        kind: SayKind,
+        text: String,
+    },
     Nick(String),
     Quit(String),
 }
 
-fn lost(events: &UnboundedSender<Inbound>, net: &NetId, nick: &str, chan: Option<String>, why: LostWhy) {
-    let _ = events.send(Inbound::Core(Event::PuppetLost { net: net.clone(), nick: nick.to_string(), chan, why }));
+fn lost(
+    events: &UnboundedSender<Inbound>,
+    net: &NetId,
+    nick: &str,
+    chan: Option<String>,
+    why: LostWhy,
+) {
+    let _ = events.send(Inbound::Core(Event::PuppetLost {
+        net: net.clone(),
+        nick: nick.to_string(),
+        chan,
+        why,
+    }));
 }
 
 pub async fn run_puppet(
@@ -35,13 +50,18 @@ pub async fn run_puppet(
     let (mut rd, mut wr) = match conn::connect(&target).await {
         Ok(x) => x,
         Err(e) => {
-            let _ = events.send(Inbound::Log(format!("[{net}] puppet {cur_nick} cannot connect: {e:#}")));
+            let _ = events.send(Inbound::Log(format!(
+                "[{net}] puppet {cur_nick} cannot connect: {e:#}"
+            )));
             lost(&events, &net, &cur_nick, None, LostWhy::Killed);
             return;
         }
     };
     if wr.send(&format!("NICK {}", face.nick)).await.is_err()
-        || wr.send(&format!("USER {} 0 * :{}", face.ident, face.realname)).await.is_err()
+        || wr
+            .send(&format!("USER {} 0 * :{}", face.ident, face.realname))
+            .await
+            .is_err()
     {
         lost(&events, &net, &cur_nick, None, LostWhy::Killed);
         return;
@@ -116,7 +136,10 @@ async fn apply(
         PuppetCmd::Join(ch) => wr.send(&format!("JOIN {ch}")).await,
         PuppetCmd::Part(ch, why) => wr.send(&format!("PART {ch} :{why}")).await,
         PuppetCmd::Say { chan, kind, text } => match kind {
-            SayKind::Action => wr.send(&format!("PRIVMSG {chan} :\x01ACTION {text}\x01")).await,
+            SayKind::Action => {
+                wr.send(&format!("PRIVMSG {chan} :\x01ACTION {text}\x01"))
+                    .await
+            }
             _ => wr.send(&format!("PRIVMSG {chan} :{text}")).await,
         },
         PuppetCmd::Nick(n) => {

@@ -89,7 +89,10 @@ impl Default for Policy {
             presence: Presence::Lazy { idle_secs: 1800 },
             require_account_in: false,
             min_presence_secs: 120,
-            rate: RateLimit { burst: 5, per_secs: 10 },
+            rate: RateLimit {
+                burst: 5,
+                per_secs: 10,
+            },
             max_line: 350,
             strip_formatting: true,
             drop_prefixes: vec!["!".into(), ".".into()],
@@ -111,21 +114,28 @@ fn parse_bool(key: &str, v: &str) -> Result<bool, SetError> {
     match v.to_ascii_lowercase().as_str() {
         "on" | "yes" | "true" | "1" => Ok(true),
         "off" | "no" | "false" | "0" => Ok(false),
-        _ => Err(SetError::BadValue { key: key.into(), why: "use on or off".into() }),
+        _ => Err(SetError::BadValue {
+            key: key.into(),
+            why: "use on or off".into(),
+        }),
     }
 }
 
-fn parse_num<T: std::str::FromStr>(key: &str, v: &str, lo: u64, hi: u64) -> Result<T, SetError>
-where
-    T: TryFrom<u64>,
-{
-    let n: u64 = v
-        .parse()
-        .map_err(|_| SetError::BadValue { key: key.into(), why: "expected a number".into() })?;
+fn parse_num<T: TryFrom<u64>>(key: &str, v: &str, lo: u64, hi: u64) -> Result<T, SetError> {
+    let n: u64 = v.parse().map_err(|_| SetError::BadValue {
+        key: key.into(),
+        why: "expected a number".into(),
+    })?;
     if n < lo || n > hi {
-        return Err(SetError::BadValue { key: key.into(), why: format!("must be between {lo} and {hi}") });
+        return Err(SetError::BadValue {
+            key: key.into(),
+            why: format!("must be between {lo} and {hi}"),
+        });
     }
-    T::try_from(n).map_err(|_| SetError::BadValue { key: key.into(), why: "out of range".into() })
+    T::try_from(n).map_err(|_| SetError::BadValue {
+        key: key.into(),
+        why: "out of range".into(),
+    })
 }
 
 impl Policy {
@@ -146,16 +156,40 @@ impl Policy {
             ]
         } else {
             vec![
-                ("share-out", "on|off - send this channel's chat to the linked channels"),
+                (
+                    "share-out",
+                    "on|off - send this channel's chat to the linked channels",
+                ),
                 ("accept-in", "on|off - show the linked channels' chat here"),
-                ("presence", "full | lazy [idle-minutes] - how remote people appear in the user list"),
-                ("require-account", "on|off - only show people who are logged in to services"),
-                ("min-presence", "seconds (0-86400) someone must be here before their lines leave"),
-                ("rate", "<lines>/<seconds>, e.g. 5/10 - per-person flood limit"),
+                (
+                    "presence",
+                    "full | lazy [idle-minutes] - how remote people appear in the user list",
+                ),
+                (
+                    "require-account",
+                    "on|off - only show people who are logged in to services",
+                ),
+                (
+                    "min-presence",
+                    "seconds (0-86400) someone must be here before their lines leave",
+                ),
+                (
+                    "rate",
+                    "<lines>/<seconds>, e.g. 5/10 - per-person flood limit",
+                ),
                 ("max-line", "characters (40-450) per relayed line"),
-                ("strip-formatting", "on|off - remove colours/bold from relayed lines"),
-                ("lang", "it | en - language of the service's replies for this channel"),
-                ("public", "on|off - list this channel on the public status page (name and mode only)"),
+                (
+                    "strip-formatting",
+                    "on|off - remove colours/bold from relayed lines",
+                ),
+                (
+                    "lang",
+                    "it | en - language of the service's replies for this channel",
+                ),
+                (
+                    "public",
+                    "on|off - list this channel on the public status page (name and mode only)",
+                ),
             ]
         }
     }
@@ -174,7 +208,12 @@ impl Policy {
                 self.lang = match value.to_ascii_lowercase().as_str() {
                     "it" | "italiano" => Lang::It,
                     "en" | "english" => Lang::En,
-                    _ => return Err(SetError::BadValue { key: key_l, why: "use it or en".into() }),
+                    _ => {
+                        return Err(SetError::BadValue {
+                            key: key_l,
+                            why: "use it or en".into(),
+                        })
+                    }
                 }
             }
             "min-presence" => self.min_presence_secs = parse_num(&key_l, value, 0, 86_400)?,
@@ -188,7 +227,9 @@ impl Policy {
                             Some(m) => parse_num(&key_l, m, 1, 1440)?,
                             None => 30,
                         };
-                        self.presence = Presence::Lazy { idle_secs: mins * 60 };
+                        self.presence = Presence::Lazy {
+                            idle_secs: mins * 60,
+                        };
                     }
                     _ => {
                         return Err(SetError::BadValue {
@@ -310,7 +351,10 @@ pub struct Bucket {
 
 impl Bucket {
     pub fn new(rate: RateLimit, now_ms: u64) -> Self {
-        Bucket { tokens: rate.burst as f64, last_ms: now_ms }
+        Bucket {
+            tokens: rate.burst as f64,
+            last_ms: now_ms,
+        }
     }
 
     /// Try to take one token. Returns false when the sender is over the limit.
@@ -343,7 +387,13 @@ mod tests {
     fn set_parses_values_and_rejects_garbage() {
         let mut p = Policy::default();
         p.set("rate", "3/20").unwrap();
-        assert_eq!(p.rate, RateLimit { burst: 3, per_secs: 20 });
+        assert_eq!(
+            p.rate,
+            RateLimit {
+                burst: 3,
+                per_secs: 20
+            }
+        );
         p.set("presence", "full").unwrap();
         assert_eq!(p.presence, Presence::Full);
         p.set("presence", "lazy 5").unwrap();
@@ -371,13 +421,19 @@ mod tests {
             p.set(k, v).unwrap_or_else(|e| panic!("{k}: {e}"));
         }
         for (k, _) in Policy::keys(Lang::It) {
-            assert!(Policy::keys(Lang::En).iter().any(|(e, _)| e == &k), "{k} missing in English");
+            assert!(
+                Policy::keys(Lang::En).iter().any(|(e, _)| e == &k),
+                "{k} missing in English"
+            );
         }
     }
 
     #[test]
     fn strips_irc_formatting() {
-        assert_eq!(strip_formatting("\x02bold\x02 and \x0304,12colour\x03 text"), "bold and colour text");
+        assert_eq!(
+            strip_formatting("\x02bold\x02 and \x0304,12colour\x03 text"),
+            "bold and colour text"
+        );
         assert_eq!(strip_formatting("\x0301,hello"), ",hello"); // comma without bg digits stays
         assert_eq!(strip_formatting("a\x07b"), "ab");
     }
@@ -390,7 +446,10 @@ mod tests {
 
     #[test]
     fn bucket_limits_then_refills() {
-        let rate = RateLimit { burst: 3, per_secs: 3 };
+        let rate = RateLimit {
+            burst: 3,
+            per_secs: 3,
+        };
         let mut b = Bucket::new(rate, 0);
         assert!(b.allow(rate, 0));
         assert!(b.allow(rate, 0));

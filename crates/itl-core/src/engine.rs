@@ -18,8 +18,8 @@
 
 use crate::command::{self, Command, ModeWord};
 use crate::face::{make_face, Face, NickStyle};
-use crate::msg::Msg;
 use crate::model::*;
+use crate::msg::Msg;
 use crate::policy::*;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet, HashMap, VecDeque};
@@ -53,7 +53,12 @@ pub struct NetConfig {
 
 impl Default for NetConfig {
     fn default() -> Self {
-        NetConfig { label: String::new(), max_nick: 30, transport: Transport::Puppets, max_puppets: 60 }
+        NetConfig {
+            label: String::new(),
+            max_nick: 30,
+            transport: Transport::Puppets,
+            max_puppets: 60,
+        }
     }
 }
 
@@ -91,12 +96,17 @@ mod chan_map {
     use super::*;
     use serde::{Deserializer, Serializer};
 
-    pub fn serialize<S: Serializer>(m: &BTreeMap<ChanKey, Member>, s: S) -> Result<S::Ok, S::Error> {
+    pub fn serialize<S: Serializer>(
+        m: &BTreeMap<ChanKey, Member>,
+        s: S,
+    ) -> Result<S::Ok, S::Error> {
         let v: Vec<(&ChanKey, &Member)> = m.iter().collect();
         v.serialize(s)
     }
 
-    pub fn deserialize<'de, D: Deserializer<'de>>(d: D) -> Result<BTreeMap<ChanKey, Member>, D::Error> {
+    pub fn deserialize<'de, D: Deserializer<'de>>(
+        d: D,
+    ) -> Result<BTreeMap<ChanKey, Member>, D::Error> {
         let v: Vec<(ChanKey, Member)> = Vec::deserialize(d)?;
         Ok(v.into_iter().collect())
     }
@@ -147,23 +157,66 @@ pub enum LostWhy {
 #[derive(Debug, Clone)]
 pub enum Event {
     /// The service is in `chan` and learned its full member list.
-    Sync { chan: ChanKey, users: Vec<(SeenUser, Role)> },
-    Join { chan: ChanKey, user: SeenUser, role: Role },
-    Part { chan: ChanKey, nick: String },
-    Quit { net: NetId, nick: String },
-    NickChange { net: NetId, old: String, new: String },
-    RoleChange { chan: ChanKey, nick: String, role: Role },
+    Sync {
+        chan: ChanKey,
+        users: Vec<(SeenUser, Role)>,
+    },
+    Join {
+        chan: ChanKey,
+        user: SeenUser,
+        role: Role,
+    },
+    Part {
+        chan: ChanKey,
+        nick: String,
+    },
+    Quit {
+        net: NetId,
+        nick: String,
+    },
+    NickChange {
+        net: NetId,
+        old: String,
+        new: String,
+    },
+    RoleChange {
+        chan: ChanKey,
+        nick: String,
+        role: Role,
+    },
     /// A person logged in to / out of services (account-notify).
-    AccountChange { net: NetId, nick: String, account: Option<String> },
-    Say { chan: ChanKey, nick: String, text: String, kind: SayKind },
+    AccountChange {
+        net: NetId,
+        nick: String,
+        account: Option<String>,
+    },
+    Say {
+        chan: ChanKey,
+        nick: String,
+        text: String,
+        kind: SayKind,
+    },
     /// A private message to the service nick.
-    Command { net: NetId, nick: String, text: String },
+    Command {
+        net: NetId,
+        nick: String,
+        text: String,
+    },
     /// One of our puppets was removed from a channel or the network.
-    PuppetLost { net: NetId, nick: String, chan: Option<String>, why: LostWhy },
+    PuppetLost {
+        net: NetId,
+        nick: String,
+        chan: Option<String>,
+        why: LostWhy,
+    },
     /// The service is no longer in `chan` (kicked, banned, channel gone).
-    ServiceLeft { chan: ChanKey },
+    ServiceLeft {
+        chan: ChanKey,
+    },
     /// The connection to a whole network dropped.
-    NetDown { net: NetId },
+    NetDown {
+        net: NetId,
+    },
     /// Periodic housekeeping (about once a minute).
     Tick,
 }
@@ -184,16 +237,50 @@ pub struct AuditRecord {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Action {
-    SpawnPuppet { net: NetId, uid: Uid, face: Face },
-    PuppetJoin { net: NetId, uid: Uid, chan: String },
-    PuppetPart { net: NetId, uid: Uid, chan: String, reason: String },
-    PuppetQuit { net: NetId, uid: Uid, reason: String },
-    PuppetNick { net: NetId, uid: Uid, nick: String },
-    Say { net: NetId, via: Via, chan: String, kind: SayKind, text: String },
+    SpawnPuppet {
+        net: NetId,
+        uid: Uid,
+        face: Face,
+    },
+    PuppetJoin {
+        net: NetId,
+        uid: Uid,
+        chan: String,
+    },
+    PuppetPart {
+        net: NetId,
+        uid: Uid,
+        chan: String,
+        reason: String,
+    },
+    PuppetQuit {
+        net: NetId,
+        uid: Uid,
+        reason: String,
+    },
+    PuppetNick {
+        net: NetId,
+        uid: Uid,
+        nick: String,
+    },
+    Say {
+        net: NetId,
+        via: Via,
+        chan: String,
+        kind: SayKind,
+        text: String,
+    },
     /// A private notice from the service to one person.
-    Reply { net: NetId, nick: String, text: String },
+    Reply {
+        net: NetId,
+        nick: String,
+        text: String,
+    },
     /// A notice from the service into a channel it is in.
-    Notice { chan: ChanKey, text: String },
+    Notice {
+        chan: ChanKey,
+        text: String,
+    },
     Audit(AuditRecord),
 }
 
@@ -285,7 +372,6 @@ pub struct Engine {
     audit: VecDeque<AuditRecord>,
 }
 
-
 impl Engine {
     pub fn new(cfg: EngineConfig) -> Self {
         Engine {
@@ -314,7 +400,10 @@ impl Engine {
     }
 
     pub fn snapshot(&self) -> Snapshot {
-        Snapshot { rooms: self.rooms.clone(), next_room: self.next_room }
+        Snapshot {
+            rooms: self.rooms.clone(),
+            next_room: self.next_room,
+        }
     }
 
     /// Channels the service must be in (all members and pending newcomers).
@@ -340,7 +429,9 @@ impl Engine {
     }
 
     pub fn puppet_nick(&self, net: &NetId, uid: Uid) -> Option<String> {
-        self.puppets.get(&(net.clone(), uid)).map(|p| p.face.nick.clone())
+        self.puppets
+            .get(&(net.clone(), uid))
+            .map(|p| p.face.nick.clone())
     }
 
     pub fn puppet_in(&self, net: &NetId, nick: &str, chan: &str) -> bool {
@@ -353,11 +444,16 @@ impl Engine {
 
     /// Language to use when talking about `k`.
     fn lang_of(&self, k: &ChanKey) -> Lang {
-        self.member(k).map(|m| m.policy.lang).unwrap_or(self.cfg.default_lang)
+        self.member(k)
+            .map(|m| m.policy.lang)
+            .unwrap_or(self.cfg.default_lang)
     }
 
     fn new_policy(&self) -> Policy {
-        Policy { lang: self.cfg.default_lang, ..Policy::default() }
+        Policy {
+            lang: self.cfg.default_lang,
+            ..Policy::default()
+        }
     }
 
     /// Public, privacy-safe summary for the status page.
@@ -405,7 +501,10 @@ impl Engine {
     }
 
     fn room_of(&self, chan: &ChanKey) -> Option<u64> {
-        self.rooms.iter().find(|(_, r)| r.members.contains_key(chan)).map(|(id, _)| *id)
+        self.rooms
+            .iter()
+            .find(|(_, r)| r.members.contains_key(chan))
+            .map(|(id, _)| *id)
     }
 
     // ----------------------------------------------------------- entry ---
@@ -419,7 +518,11 @@ impl Engine {
             Event::Quit { net, nick } => self.on_quit(&net, &nick, &mut out),
             Event::NickChange { net, old, new } => self.on_nick(&net, &old, &new, &mut out),
             Event::RoleChange { chan, nick, role } => {
-                if let Some(cu) = self.chans.get_mut(&chan).and_then(|c| c.users.get_mut(&fold(&nick))) {
+                if let Some(cu) = self
+                    .chans
+                    .get_mut(&chan)
+                    .and_then(|c| c.users.get_mut(&fold(&nick)))
+                {
                     cu.role = role;
                 }
             }
@@ -431,12 +534,30 @@ impl Engine {
                     self.reconcile_user(now, uid, &mut out);
                 }
             }
-            Event::Say { chan, nick, text, kind } => self.on_say(now, chan, &nick, &text, kind, &mut out),
-            Event::Command { net, nick, text } => self.on_command(now, &net, &nick, &text, &mut out),
-            Event::PuppetLost { net, nick, chan, why } => self.on_puppet_lost(now, &net, &nick, chan, why, &mut out),
+            Event::Say {
+                chan,
+                nick,
+                text,
+                kind,
+            } => self.on_say(now, chan, &nick, &text, kind, &mut out),
+            Event::Command { net, nick, text } => {
+                self.on_command(now, &net, &nick, &text, &mut out)
+            }
+            Event::PuppetLost {
+                net,
+                nick,
+                chan,
+                why,
+            } => self.on_puppet_lost(now, &net, &nick, chan, why, &mut out),
             Event::ServiceLeft { chan } => {
                 self.chans.remove(&chan);
-                self.note(&mut out, now, Some(chan.clone()), "service", "service left the channel; link paused until it is back");
+                self.note(
+                    &mut out,
+                    now,
+                    Some(chan.clone()),
+                    "service",
+                    "service left the channel; link paused until it is back",
+                );
                 self.reconcile_all(now, &mut out);
             }
             Event::NetDown { net } => self.on_net_down(now, &net, &mut out),
@@ -447,8 +568,20 @@ impl Engine {
 
     // ----------------------------------------------------------- audit ---
 
-    fn note(&mut self, out: &mut Vec<Action>, at: u64, chan: Option<ChanKey>, actor: &str, what: &str) {
-        let rec = AuditRecord { at, chan, actor: actor.to_string(), what: what.to_string() };
+    fn note(
+        &mut self,
+        out: &mut Vec<Action>,
+        at: u64,
+        chan: Option<ChanKey>,
+        actor: &str,
+        what: &str,
+    ) {
+        let rec = AuditRecord {
+            at,
+            chan,
+            actor: actor.to_string(),
+            what: what.to_string(),
+        };
         self.audit.push_back(rec.clone());
         while self.audit.len() > AUDIT_RING {
             self.audit.pop_front();
@@ -469,12 +602,22 @@ impl Engine {
         let uid = self.next_uid;
         self.next_uid += 1;
         self.users.insert(key, uid);
-        self.urec.insert(uid, UserRec { net: net.clone(), seen: seen.clone() });
+        self.urec.insert(
+            uid,
+            UserRec {
+                net: net.clone(),
+                seen: seen.clone(),
+            },
+        );
         uid
     }
 
     fn forget_if_orphan(&mut self, uid: Uid) {
-        if self.chans.values().any(|c| c.users.values().any(|u| u.uid == uid)) {
+        if self
+            .chans
+            .values()
+            .any(|c| c.users.values().any(|u| u.uid == uid))
+        {
             return;
         }
         if let Some(r) = self.urec.remove(&uid) {
@@ -491,9 +634,13 @@ impl Engine {
         if from == to || from.net == to.net {
             return false;
         }
-        let Some(rid) = self.room_of(from) else { return false };
+        let Some(rid) = self.room_of(from) else {
+            return false;
+        };
         let room = &self.rooms[&rid];
-        let (Some(f), Some(t)) = (room.members.get(from), room.members.get(to)) else { return false };
+        let (Some(f), Some(t)) = (room.members.get(from), room.members.get(to)) else {
+            return false;
+        };
         self.chans.contains_key(from)
             && self.chans.contains_key(to)
             && !f.paused
@@ -521,28 +668,48 @@ impl Engine {
             account: user.account.clone(),
             is_bot: user.is_bot,
         };
-        policy.block.iter().any(|m| mask_matches(m, user) || mask_matches(m, &as_puppet))
+        policy
+            .block
+            .iter()
+            .any(|m| mask_matches(m, user) || mask_matches(m, &as_puppet))
     }
 
     /// Should this person be visible in channel `to` (as a puppet)?
     fn shown(&self, now: u64, uid: Uid, to: &ChanKey) -> bool {
-        let Some(rec) = self.urec.get(&uid) else { return false };
+        let Some(rec) = self.urec.get(&uid) else {
+            return false;
+        };
         if rec.net == to.net || (rec.seen.is_bot && !self.cfg.relay_bots) {
             return false;
         }
-        if self.cooldown.get(&(uid, to.clone())).is_some_and(|until| *until > now) {
+        if self
+            .cooldown
+            .get(&(uid, to.clone()))
+            .is_some_and(|until| *until > now)
+        {
             return false;
         }
-        let Some(rid) = self.room_of(to) else { return false };
+        let Some(rid) = self.room_of(to) else {
+            return false;
+        };
         let room = &self.rooms[&rid];
-        let Some(t) = room.members.get(to) else { return false };
-        if self.blocked(&t.policy, &rec.net, &rec.seen) || (t.policy.require_account_in && rec.seen.account.is_none()) {
+        let Some(t) = room.members.get(to) else {
+            return false;
+        };
+        if self.blocked(&t.policy, &rec.net, &rec.seen)
+            || (t.policy.require_account_in && rec.seen.account.is_none())
+        {
             return false;
         }
         room.members.keys().any(|from| {
-            self.chans.get(from).is_some_and(|c| c.users.values().any(|u| u.uid == uid))
+            self.chans
+                .get(from)
+                .is_some_and(|c| c.users.values().any(|u| u.uid == uid))
                 && self.flows(from, to)
-                && room.members.get(from).is_some_and(|f| !self.blocked(&f.policy, &rec.net, &rec.seen))
+                && room
+                    .members
+                    .get(from)
+                    .is_some_and(|f| !self.blocked(&f.policy, &rec.net, &rec.seen))
         })
     }
 
@@ -553,7 +720,10 @@ impl Engine {
         let origin = self.net_cfg(&rec.net);
         let tcfg = self.net_cfg(target);
         let service = fold(&self.cfg.service_nick);
-        let own = self.puppets.get(&(target.clone(), uid)).map(|p| fold(&p.face.nick));
+        let own = self
+            .puppets
+            .get(&(target.clone(), uid))
+            .map(|p| fold(&p.face.nick));
         let taken = |n: &str| {
             let f = fold(n);
             if Some(&f) == own.as_ref() {
@@ -563,7 +733,14 @@ impl Engine {
                 || self.puppet_nicks.contains_key(&(target.clone(), f.clone()))
                 || self.users.contains_key(&(target.clone(), f))
         };
-        Some(make_face(&rec.net, &origin.label, &rec.seen, &self.cfg.nick_style, tcfg.max_nick, &taken))
+        Some(make_face(
+            &rec.net,
+            &origin.label,
+            &rec.seen,
+            &self.cfg.nick_style,
+            tcfg.max_nick,
+            &taken,
+        ))
     }
 
     fn drop_puppet(&mut self, net: &NetId, uid: Uid) {
@@ -587,41 +764,86 @@ impl Engine {
                 .map(|((_, u), _)| *u);
             match victim {
                 Some(v) => {
-                    out.push(Action::PuppetQuit { net: net.clone(), uid: v, reason: "Ita Link: making room".into() });
+                    out.push(Action::PuppetQuit {
+                        net: net.clone(),
+                        uid: v,
+                        reason: "Ita Link: making room".into(),
+                    });
                     self.drop_puppet(net, v);
                 }
                 None => break,
             }
         }
-        let Some(face) = self.face_for(uid, net) else { return false };
-        self.puppet_nicks.insert((net.clone(), fold(&face.nick)), uid);
-        self.puppets.insert((net.clone(), uid), Puppet { face: face.clone(), chans: HashMap::new(), last: now });
-        out.push(Action::SpawnPuppet { net: net.clone(), uid, face });
+        let Some(face) = self.face_for(uid, net) else {
+            return false;
+        };
+        self.puppet_nicks
+            .insert((net.clone(), fold(&face.nick)), uid);
+        self.puppets.insert(
+            (net.clone(), uid),
+            Puppet {
+                face: face.clone(),
+                chans: HashMap::new(),
+                last: now,
+            },
+        );
+        out.push(Action::SpawnPuppet {
+            net: net.clone(),
+            uid,
+            face,
+        });
         true
     }
 
-    fn puppet_join(&mut self, now: u64, net: &NetId, uid: Uid, chan: &ChanKey, out: &mut Vec<Action>) {
+    fn puppet_join(
+        &mut self,
+        now: u64,
+        net: &NetId,
+        uid: Uid,
+        chan: &ChanKey,
+        out: &mut Vec<Action>,
+    ) {
         if !self.ensure_puppet(now, net, uid, out) {
             return;
         }
         if let Some(p) = self.puppets.get_mut(&(net.clone(), uid)) {
             p.last = now;
             if p.chans.insert(chan.chan.clone(), now).is_none() {
-                out.push(Action::PuppetJoin { net: net.clone(), uid, chan: chan.chan.clone() });
+                out.push(Action::PuppetJoin {
+                    net: net.clone(),
+                    uid,
+                    chan: chan.chan.clone(),
+                });
             }
         }
     }
 
-    fn puppet_part(&mut self, net: &NetId, uid: Uid, chan: &str, reason: &str, out: &mut Vec<Action>) {
+    fn puppet_part(
+        &mut self,
+        net: &NetId,
+        uid: Uid,
+        chan: &str,
+        reason: &str,
+        out: &mut Vec<Action>,
+    ) {
         let mut empty = false;
         if let Some(p) = self.puppets.get_mut(&(net.clone(), uid)) {
             if p.chans.remove(chan).is_some() {
-                out.push(Action::PuppetPart { net: net.clone(), uid, chan: chan.to_string(), reason: reason.to_string() });
+                out.push(Action::PuppetPart {
+                    net: net.clone(),
+                    uid,
+                    chan: chan.to_string(),
+                    reason: reason.to_string(),
+                });
             }
             empty = p.chans.is_empty();
         }
         if empty {
-            out.push(Action::PuppetQuit { net: net.clone(), uid, reason: reason.to_string() });
+            out.push(Action::PuppetQuit {
+                net: net.clone(),
+                uid,
+                reason: reason.to_string(),
+            });
             self.drop_puppet(net, uid);
         }
     }
@@ -631,12 +853,23 @@ impl Engine {
         let targets: Vec<(ChanKey, Presence)> = self
             .rooms
             .values()
-            .flat_map(|r| r.members.iter().map(|(k, m)| (k.clone(), m.policy.presence)))
+            .flat_map(|r| {
+                r.members
+                    .iter()
+                    .map(|(k, m)| (k.clone(), m.policy.presence))
+            })
             .collect();
         for (to, presence) in targets {
             let want = self.shown(now, uid, &to);
-            let has = self.puppets.get(&(to.net.clone(), uid)).is_some_and(|p| p.chans.contains_key(&to.chan));
-            if want && !has && presence == Presence::Full && self.net_cfg(&to.net).transport == Transport::Puppets {
+            let has = self
+                .puppets
+                .get(&(to.net.clone(), uid))
+                .is_some_and(|p| p.chans.contains_key(&to.chan));
+            if want
+                && !has
+                && presence == Presence::Full
+                && self.net_cfg(&to.net).transport == Transport::Puppets
+            {
                 self.puppet_join(now, &to.net, uid, &to, out);
             } else if !want && has {
                 self.puppet_part(&to.net, uid, &to.chan, "Ita Link: no longer shared", out);
@@ -647,7 +880,12 @@ impl Engine {
             .puppets
             .iter()
             .filter(|((_, u), _)| *u == uid)
-            .flat_map(|((n, _), p)| p.chans.keys().map(move |c| ChanKey { net: n.clone(), chan: c.clone() }))
+            .flat_map(|((n, _), p)| {
+                p.chans.keys().map(move |c| ChanKey {
+                    net: n.clone(),
+                    chan: c.clone(),
+                })
+            })
             .collect();
         for k in sitting {
             if !self.shown(now, uid, &k) {
@@ -670,28 +908,51 @@ impl Engine {
             .cloned()
             .collect();
         for (n, u) in orphans {
-            out.push(Action::PuppetQuit { net: n.clone(), uid: u, reason: "Ita Link: user gone".into() });
+            out.push(Action::PuppetQuit {
+                net: n.clone(),
+                uid: u,
+                reason: "Ita Link: user gone".into(),
+            });
             self.drop_puppet(&n, u);
         }
     }
 
     // ------------------------------------------------------- channel events ---
 
-    fn on_sync(&mut self, now: u64, chan: ChanKey, users: Vec<(SeenUser, Role)>, out: &mut Vec<Action>) {
+    fn on_sync(
+        &mut self,
+        now: u64,
+        chan: ChanKey,
+        users: Vec<(SeenUser, Role)>,
+        out: &mut Vec<Action>,
+    ) {
         let mut state = ChanState::default();
         let mut present = Vec::new();
         for (seen, role) in users {
             if fold(&seen.nick) == fold(&self.cfg.service_nick)
-                || self.puppet_nicks.contains_key(&(chan.net.clone(), fold(&seen.nick)))
+                || self
+                    .puppet_nicks
+                    .contains_key(&(chan.net.clone(), fold(&seen.nick)))
             {
                 continue; // ourselves and our own puppets are not "people"
             }
             let uid = self.register(&chan.net, &seen);
-            let since = self.chans.get(&chan).and_then(|c| c.users.get(&fold(&seen.nick))).map(|u| u.since).unwrap_or(now);
-            state.users.insert(fold(&seen.nick), ChanUser { uid, role, since });
+            let since = self
+                .chans
+                .get(&chan)
+                .and_then(|c| c.users.get(&fold(&seen.nick)))
+                .map(|u| u.since)
+                .unwrap_or(now);
+            state
+                .users
+                .insert(fold(&seen.nick), ChanUser { uid, role, since });
             present.push(uid);
         }
-        let before: Vec<Uid> = self.chans.get(&chan).map(|c| c.users.values().map(|u| u.uid).collect()).unwrap_or_default();
+        let before: Vec<Uid> = self
+            .chans
+            .get(&chan)
+            .map(|c| c.users.values().map(|u| u.uid).collect())
+            .unwrap_or_default();
         self.chans.insert(chan.clone(), state);
         for uid in before.iter().chain(present.iter()) {
             self.reconcile_user(now, *uid, out);
@@ -703,24 +964,44 @@ impl Engine {
         self.reconcile_all(now, out);
     }
 
-    fn on_join(&mut self, now: u64, chan: ChanKey, user: SeenUser, role: Role, out: &mut Vec<Action>) {
+    fn on_join(
+        &mut self,
+        now: u64,
+        chan: ChanKey,
+        user: SeenUser,
+        role: Role,
+        out: &mut Vec<Action>,
+    ) {
         if !self.chans.contains_key(&chan) {
             return;
         }
         if fold(&user.nick) == fold(&self.cfg.service_nick)
-            || self.puppet_nicks.contains_key(&(chan.net.clone(), fold(&user.nick)))
+            || self
+                .puppet_nicks
+                .contains_key(&(chan.net.clone(), fold(&user.nick)))
         {
             return;
         }
         let uid = self.register(&chan.net, &user);
         if let Some(c) = self.chans.get_mut(&chan) {
-            c.users.insert(fold(&user.nick), ChanUser { uid, role, since: now });
+            c.users.insert(
+                fold(&user.nick),
+                ChanUser {
+                    uid,
+                    role,
+                    since: now,
+                },
+            );
         }
         self.reconcile_user(now, uid, out);
     }
 
     fn on_part(&mut self, chan: ChanKey, nick: &str, out: &mut Vec<Action>) {
-        let uid = self.chans.get_mut(&chan).and_then(|c| c.users.remove(&fold(nick))).map(|u| u.uid);
+        let uid = self
+            .chans
+            .get_mut(&chan)
+            .and_then(|c| c.users.remove(&fold(nick)))
+            .map(|u| u.uid);
         if let Some(uid) = uid {
             self.reconcile_user(0, uid, out);
             self.forget_if_orphan(uid);
@@ -745,7 +1026,9 @@ impl Engine {
 
     fn on_nick(&mut self, net: &NetId, old: &str, new: &str, out: &mut Vec<Action>) {
         let (fo, fnw) = (fold(old), fold(new));
-        let Some(uid) = self.users.remove(&(net.clone(), fo.clone())) else { return };
+        let Some(uid) = self.users.remove(&(net.clone(), fo.clone())) else {
+            return;
+        };
         self.users.insert((net.clone(), fnw.clone()), uid);
         if let Some(r) = self.urec.get_mut(&uid) {
             r.seen.nick = new.to_string();
@@ -758,31 +1041,49 @@ impl Engine {
             }
         }
         // Their puppets follow the new nick.
-        let nets: Vec<NetId> = self.puppets.keys().filter(|(_, u)| *u == uid).map(|(n, _)| n.clone()).collect();
+        let nets: Vec<NetId> = self
+            .puppets
+            .keys()
+            .filter(|(_, u)| *u == uid)
+            .map(|(n, _)| n.clone())
+            .collect();
         for tn in nets {
             if let Some(face) = self.face_for(uid, &tn) {
                 let cur = self.puppets[&(tn.clone(), uid)].face.nick.clone();
                 if fold(&cur) != fold(&face.nick) {
                     self.puppet_nicks.remove(&(tn.clone(), fold(&cur)));
-                    self.puppet_nicks.insert((tn.clone(), fold(&face.nick)), uid);
+                    self.puppet_nicks
+                        .insert((tn.clone(), fold(&face.nick)), uid);
                     if let Some(p) = self.puppets.get_mut(&(tn.clone(), uid)) {
                         p.face.nick = face.nick.clone();
                     }
-                    out.push(Action::PuppetNick { net: tn, uid, nick: face.nick });
+                    out.push(Action::PuppetNick {
+                        net: tn,
+                        uid,
+                        nick: face.nick,
+                    });
                 }
             }
         }
     }
 
     fn on_net_down(&mut self, now: u64, net: &NetId, out: &mut Vec<Action>) {
-        let lost: Vec<ChanKey> = self.chans.keys().filter(|k| &k.net == net).cloned().collect();
+        let lost: Vec<ChanKey> = self
+            .chans
+            .keys()
+            .filter(|k| &k.net == net)
+            .cloned()
+            .collect();
         // Tell the neighbours before we forget who they were linked with.
         let label = self.net_cfg(net).label;
         let mut told = BTreeSet::new();
         for k in &lost {
             if let Some(rid) = self.room_of(k) {
                 for peer in self.rooms[&rid].members.keys() {
-                    if &peer.net != net && self.chans.contains_key(peer) && told.insert(peer.clone()) {
+                    if &peer.net != net
+                        && self.chans.contains_key(peer)
+                        && told.insert(peer.clone())
+                    {
                         out.push(Action::Notice {
                             chan: peer.clone(),
                             text: Msg::NetDown { label: &label }.render(self.lang_of(peer)),
@@ -801,20 +1102,45 @@ impl Engine {
             }
         }
         // Puppet connections on that network died with it.
-        let dead: Vec<(NetId, Uid)> = self.puppets.keys().filter(|(n, _)| n == net).cloned().collect();
+        let dead: Vec<(NetId, Uid)> = self
+            .puppets
+            .keys()
+            .filter(|(n, _)| n == net)
+            .cloned()
+            .collect();
         for (n, u) in dead {
             self.drop_puppet(&n, u);
         }
         self.reconcile_all(now, out);
     }
 
-    fn on_puppet_lost(&mut self, now: u64, net: &NetId, nick: &str, chan: Option<String>, why: LostWhy, out: &mut Vec<Action>) {
-        let Some(uid) = self.puppet_nicks.get(&(net.clone(), fold(nick))).copied() else { return };
-        let ident = self.puppets.get(&(net.clone(), uid)).map(|p| p.face.ident.clone()).unwrap_or_default();
+    fn on_puppet_lost(
+        &mut self,
+        now: u64,
+        net: &NetId,
+        nick: &str,
+        chan: Option<String>,
+        why: LostWhy,
+        out: &mut Vec<Action>,
+    ) {
+        let Some(uid) = self.puppet_nicks.get(&(net.clone(), fold(nick))).copied() else {
+            return;
+        };
+        let ident = self
+            .puppets
+            .get(&(net.clone(), uid))
+            .map(|p| p.face.ident.clone())
+            .unwrap_or_default();
         match (why, chan) {
             (LostWhy::Killed, _) | (_, None) => {
                 self.drop_puppet(net, uid);
-                self.note(out, now, None, "network", &format!("puppet {nick} on {net} removed by the network"));
+                self.note(
+                    out,
+                    now,
+                    None,
+                    "network",
+                    &format!("puppet {nick} on {net} removed by the network"),
+                );
             }
             (why, Some(c)) => {
                 let key = ChanKey::new(&net.0, &c);
@@ -831,7 +1157,11 @@ impl Engine {
                     let mask = format!("*!*{ident}@*");
                     let mut added = false;
                     if let Some(rid) = self.room_of(&key) {
-                        if let Some(m) = self.rooms.get_mut(&rid).and_then(|r| r.members.get_mut(&key)) {
+                        if let Some(m) = self
+                            .rooms
+                            .get_mut(&rid)
+                            .and_then(|r| r.members.get_mut(&key))
+                        {
                             if !m.policy.block.contains(&mask) {
                                 m.policy.block.push(mask.clone());
                                 added = true;
@@ -839,12 +1169,25 @@ impl Engine {
                         }
                     }
                     if added {
-                        self.note(out, now, Some(key), "ban", &format!("{nick} was banned: blocked {mask} permanently"));
+                        self.note(
+                            out,
+                            now,
+                            Some(key),
+                            "ban",
+                            &format!("{nick} was banned: blocked {mask} permanently"),
+                        );
                     }
                 } else {
                     // A kick is a warning: keep them out for a while.
-                    self.cooldown.insert((uid, key.clone()), now + KICK_COOLDOWN_MS);
-                    self.note(out, now, Some(key), "kick", &format!("{nick} was kicked: kept out for 10 minutes"));
+                    self.cooldown
+                        .insert((uid, key.clone()), now + KICK_COOLDOWN_MS);
+                    self.note(
+                        out,
+                        now,
+                        Some(key),
+                        "kick",
+                        &format!("{nick} was kicked: kept out for 10 minutes"),
+                    );
                 }
             }
         }
@@ -855,7 +1198,10 @@ impl Engine {
         let mut parts: Vec<(NetId, Uid, String)> = Vec::new();
         for ((net, uid), p) in &self.puppets {
             for (chan, last) in &p.chans {
-                let key = ChanKey { net: net.clone(), chan: chan.clone() };
+                let key = ChanKey {
+                    net: net.clone(),
+                    chan: chan.clone(),
+                };
                 let idle = self.member(&key).and_then(|m| match m.policy.presence {
                     Presence::Lazy { idle_secs } => Some(idle_secs * 1000),
                     Presence::Full => None,
@@ -882,26 +1228,52 @@ impl Engine {
             });
         }
         for (_, who) in expired {
-            self.note(out, now, Some(who), "system", "link request expired after 7 days");
+            self.note(
+                out,
+                now,
+                Some(who),
+                "system",
+                "link request expired after 7 days",
+            );
         }
         self.cooldown.retain(|_, until| *until > now);
     }
 
     // ----------------------------------------------------------- messages ---
 
-    fn on_say(&mut self, now: u64, chan: ChanKey, nick: &str, text: &str, kind: SayKind, out: &mut Vec<Action>) {
+    fn on_say(
+        &mut self,
+        now: u64,
+        chan: ChanKey,
+        nick: &str,
+        text: &str,
+        kind: SayKind,
+        out: &mut Vec<Action>,
+    ) {
         if kind == SayKind::Notice {
             return;
         }
         let f = fold(nick);
-        if f == fold(&self.cfg.service_nick) || self.puppet_nicks.contains_key(&(chan.net.clone(), f.clone())) {
+        if f == fold(&self.cfg.service_nick)
+            || self
+                .puppet_nicks
+                .contains_key(&(chan.net.clone(), f.clone()))
+        {
             return; // never relay ourselves or our puppets: that is how loops start
         }
-        let Some(rid) = self.room_of(&chan) else { return };
-        let Some(cu) = self.chans.get(&chan).and_then(|c| c.users.get(&f)).cloned() else { return };
-        let Some(rec) = self.urec.get(&cu.uid).cloned() else { return };
+        let Some(rid) = self.room_of(&chan) else {
+            return;
+        };
+        let Some(cu) = self.chans.get(&chan).and_then(|c| c.users.get(&f)).cloned() else {
+            return;
+        };
+        let Some(rec) = self.urec.get(&cu.uid).cloned() else {
+            return;
+        };
         let room = self.rooms[&rid].clone();
-        let Some(src) = room.members.get(&chan) else { return };
+        let Some(src) = room.members.get(&chan) else {
+            return;
+        };
         if rec.seen.is_bot && !self.cfg.relay_bots {
             return;
         }
@@ -913,12 +1285,21 @@ impl Engine {
             why_not = Some("not sharing");
         } else if self.blocked(sp, &rec.net, &rec.seen) {
             why_not = Some("blocked");
-        } else if kind == SayKind::Message && sp.drop_prefixes.iter().any(|p| text.starts_with(p.as_str())) {
+        } else if kind == SayKind::Message
+            && sp
+                .drop_prefixes
+                .iter()
+                .any(|p| text.starts_with(p.as_str()))
+        {
             why_not = Some("command");
         } else if now.saturating_sub(cu.since) < sp.min_presence_secs * 1000 {
             why_not = Some("too new");
         }
-        let mut body = if sp.strip_formatting { strip_formatting(text) } else { text.to_string() };
+        let mut body = if sp.strip_formatting {
+            strip_formatting(text)
+        } else {
+            text.to_string()
+        };
         body = body.trim().to_string();
         if body.is_empty() {
             why_not = Some("empty");
@@ -943,11 +1324,22 @@ impl Engine {
                 continue;
             }
             if tm.policy.mode == Mode::Preview {
-                if !self.chans.contains_key(&chan) || !self.chans.contains_key(to) || tm.paused || !tm.policy.accept_in {
+                if !self.chans.contains_key(&chan)
+                    || !self.chans.contains_key(to)
+                    || tm.paused
+                    || !tm.policy.accept_in
+                {
                     continue;
                 }
-                if sp.mode == Mode::Live && !src.paused && sp.share_out && !tm.policy.muted.contains(&chan.to_string()) {
-                    let line = self.face_for(cu.uid, &to.net).map(|f| f.nick).unwrap_or_else(|| rec.seen.nick.clone());
+                if sp.mode == Mode::Live
+                    && !src.paused
+                    && sp.share_out
+                    && !tm.policy.muted.contains(&chan.to_string())
+                {
+                    let line = self
+                        .face_for(cu.uid, &to.net)
+                        .map(|f| f.nick)
+                        .unwrap_or_else(|| rec.seen.nick.clone());
                     let line = match kind {
                         SayKind::Action => format!("* {line} {body}"),
                         _ => format!("<{line}> {body}"),
@@ -984,15 +1376,30 @@ impl Engine {
                         p.chans.insert(to.chan.clone(), now);
                         p.last = now;
                     }
-                    out.push(Action::Say { net: to.net.clone(), via: Via::Puppet(cu.uid), chan: to.chan.clone(), kind, text: line });
+                    out.push(Action::Say {
+                        net: to.net.clone(),
+                        via: Via::Puppet(cu.uid),
+                        chan: to.chan.clone(),
+                        kind,
+                        text: line,
+                    });
                 }
                 Transport::ServiceBot => {
-                    let label = self.face_for(cu.uid, &to.net).map(|f| f.nick).unwrap_or_else(|| rec.seen.nick.clone());
+                    let label = self
+                        .face_for(cu.uid, &to.net)
+                        .map(|f| f.nick)
+                        .unwrap_or_else(|| rec.seen.nick.clone());
                     let text = match kind {
                         SayKind::Action => format!("* {label} {line}"),
                         _ => format!("<{label}> {line}"),
                     };
-                    out.push(Action::Say { net: to.net.clone(), via: Via::Service, chan: to.chan.clone(), kind: SayKind::Message, text });
+                    out.push(Action::Say {
+                        net: to.net.clone(),
+                        via: Via::Service,
+                        chan: to.chan.clone(),
+                        kind: SayKind::Message,
+                        text,
+                    });
                 }
             }
             self.stats.entry(to.clone()).or_default().in_lines += 1;
@@ -1003,7 +1410,11 @@ impl Engine {
     // ----------------------------------------------------------- commands ---
 
     fn reply(out: &mut Vec<Action>, net: &NetId, nick: &str, text: impl Into<String>) {
-        out.push(Action::Reply { net: net.clone(), nick: nick.to_string(), text: text.into() });
+        out.push(Action::Reply {
+            net: net.clone(),
+            nick: nick.to_string(),
+            text: text.into(),
+        });
     }
 
     /// Check the caller may act for `chan`: service present, caller is an op.
@@ -1011,7 +1422,11 @@ impl Engine {
         let key = ChanKey::new(&net.0, chan);
         let l = self.lang_of(&key);
         let Some(cs) = self.chans.get(&key) else {
-            return Err(Msg::NotInChannel { chan, svc: &self.cfg.service_nick }.render(l));
+            return Err(Msg::NotInChannel {
+                chan,
+                svc: &self.cfg.service_nick,
+            }
+            .render(l));
         };
         let Some(cu) = cs.users.get(&fold(nick)) else {
             return Err(Msg::NotSeen { chan }.render(l));
@@ -1020,7 +1435,10 @@ impl Engine {
             return Err(Msg::NotOp { chan }.render(l));
         }
         if self.cfg.require_account_for_owner
-            && self.urec.get(&cu.uid).is_some_and(|r| r.seen.account.is_none())
+            && self
+                .urec
+                .get(&cu.uid)
+                .is_some_and(|r| r.seen.account.is_none())
         {
             return Err(Msg::NeedAccount.render(l));
         }
@@ -1049,11 +1467,22 @@ impl Engine {
             .ok_or_else(|| Msg::NotLinkedYet { chan: &key.chan }.render(l))
     }
 
-    fn run_command(&mut self, now: u64, net: &NetId, nick: &str, cmd: Command, out: &mut Vec<Action>) -> Result<(), String> {
+    fn run_command(
+        &mut self,
+        now: u64,
+        net: &NetId,
+        nick: &str,
+        cmd: Command,
+        out: &mut Vec<Action>,
+    ) -> Result<(), String> {
         use Command::*;
         match cmd {
             Help(topic) => {
-                for l in crate::msg::help_lines(topic.as_deref(), &self.cfg.service_nick, self.cfg.default_lang) {
+                for l in crate::msg::help_lines(
+                    topic.as_deref(),
+                    &self.cfg.service_nick,
+                    self.cfg.default_lang,
+                ) {
                     Self::reply(out, net, nick, l);
                 }
                 Ok(())
@@ -1102,7 +1531,13 @@ impl Engine {
                     ModeWord::Live => Mode::Live,
                 };
                 self.member_mut(&k)?.policy.mode = m;
-                self.note(out, now, Some(k.clone()), nick, &format!("mode set to {m:?}"));
+                self.note(
+                    out,
+                    now,
+                    Some(k.clone()),
+                    nick,
+                    &format!("mode set to {m:?}"),
+                );
                 self.reconcile_all(now, out);
                 let msg = match m {
                     Mode::Live => Msg::ModeLive { chan: &chan },
@@ -1116,11 +1551,30 @@ impl Engine {
             Set { chan, key, value } => {
                 let k = self.auth(net, nick, &chan)?;
                 let _l = self.lang_of(&k);
-                self.member_mut(&k)?.policy.set(&key, &value).map_err(|e| e.to_string())?;
-                self.note(out, now, Some(k.clone()), nick, &format!("set {key} = {value}"));
+                self.member_mut(&k)?
+                    .policy
+                    .set(&key, &value)
+                    .map_err(|e| e.to_string())?;
+                self.note(
+                    out,
+                    now,
+                    Some(k.clone()),
+                    nick,
+                    &format!("set {key} = {value}"),
+                );
                 self.reconcile_all(now, out);
                 let l = self.lang_of(&k);
-                Self::reply(out, net, nick, Msg::SetOk { chan: &chan, key: &key, value: &value }.render(l));
+                Self::reply(
+                    out,
+                    net,
+                    nick,
+                    Msg::SetOk {
+                        chan: &chan,
+                        key: &key,
+                        value: &value,
+                    }
+                    .render(l),
+                );
                 Ok(())
             }
             Block { chan, mask } => {
@@ -1129,14 +1583,23 @@ impl Engine {
                 let mask = normalise_mask(&mask).map_err(|_| Msg::BadMask.render(l))?;
                 let m = self.member_mut(&k)?;
                 if m.policy.block.len() >= 200 {
-                    return Err(Msg::BadMask.render(l)).or_else(|_: String| Err::<(), String>(Msg::BlockFull.render(l)));
+                    return Err(Msg::BlockFull.render(l));
                 }
                 if !m.policy.block.contains(&mask) {
                     m.policy.block.push(mask.clone());
                 }
                 self.note(out, now, Some(k), nick, &format!("blocked {mask}"));
                 self.reconcile_all(now, out);
-                Self::reply(out, net, nick, Msg::Blocked { chan: &chan, mask: &mask }.render(l));
+                Self::reply(
+                    out,
+                    net,
+                    nick,
+                    Msg::Blocked {
+                        chan: &chan,
+                        mask: &mask,
+                    }
+                    .render(l),
+                );
                 Ok(())
             }
             Unblock { chan, mask } => {
@@ -1151,7 +1614,16 @@ impl Engine {
                 }
                 self.note(out, now, Some(k), nick, &format!("unblocked {mask}"));
                 self.reconcile_all(now, out);
-                Self::reply(out, net, nick, Msg::Unblocked { chan: &chan, mask: &mask }.render(l));
+                Self::reply(
+                    out,
+                    net,
+                    nick,
+                    Msg::Unblocked {
+                        chan: &chan,
+                        mask: &mask,
+                    }
+                    .render(l),
+                );
                 Ok(())
             }
             Mute { chan, other } => {
@@ -1164,7 +1636,16 @@ impl Engine {
                 }
                 self.note(out, now, Some(k), nick, &format!("muted {o}"));
                 self.reconcile_all(now, out);
-                Self::reply(out, net, nick, Msg::Muted { chan: &chan, other: &o }.render(l));
+                Self::reply(
+                    out,
+                    net,
+                    nick,
+                    Msg::Muted {
+                        chan: &chan,
+                        other: &o,
+                    }
+                    .render(l),
+                );
                 Ok(())
             }
             Unmute { chan, other } => {
@@ -1174,7 +1655,16 @@ impl Engine {
                 self.member_mut(&k)?.policy.muted.retain(|x| x != &o);
                 self.note(out, now, Some(k), nick, &format!("unmuted {o}"));
                 self.reconcile_all(now, out);
-                Self::reply(out, net, nick, Msg::Unmuted { chan: &chan, other: &o }.render(l));
+                Self::reply(
+                    out,
+                    net,
+                    nick,
+                    Msg::Unmuted {
+                        chan: &chan,
+                        other: &o,
+                    }
+                    .render(l),
+                );
                 Ok(())
             }
             Status { chan } => {
@@ -1191,7 +1681,16 @@ impl Engine {
                 match self.samples.get(&k).filter(|q| !q.is_empty()) {
                     None => Self::reply(out, net, nick, Msg::SampleNone.render(l)),
                     Some(q) => {
-                        Self::reply(out, net, nick, Msg::SampleHeader { n: q.len(), chan: &chan }.render(l));
+                        Self::reply(
+                            out,
+                            net,
+                            nick,
+                            Msg::SampleHeader {
+                                n: q.len(),
+                                chan: &chan,
+                            }
+                            .render(l),
+                        );
                         for line in q.iter() {
                             Self::reply(out, net, nick, line.clone());
                         }
@@ -1202,12 +1701,21 @@ impl Engine {
             Audit { chan, count } => {
                 let k = self.auth(net, nick, &chan)?;
                 let l = self.lang_of(&k);
-                let recs: Vec<&AuditRecord> = self.audit.iter().filter(|r| r.chan.as_ref() == Some(&k)).collect();
+                let recs: Vec<&AuditRecord> = self
+                    .audit
+                    .iter()
+                    .filter(|r| r.chan.as_ref() == Some(&k))
+                    .collect();
                 if recs.is_empty() {
                     Self::reply(out, net, nick, Msg::AuditNone.render(l));
                 }
                 for r in recs.iter().rev().take(count).rev() {
-                    Self::reply(out, net, nick, format!("[{}s] {}: {}", r.at / 1000, r.actor, r.what));
+                    Self::reply(
+                        out,
+                        net,
+                        nick,
+                        format!("[{}s] {}: {}", r.at / 1000, r.actor, r.what),
+                    );
                 }
                 Ok(())
             }
@@ -1219,9 +1727,15 @@ impl Engine {
         let mut v = Vec::new();
         let Some(rid) = self.room_of(k) else {
             v.push(if it {
-                format!("{} non è collegato a niente. LINK <#canale> <rete> <#loro> avvia un link.", k.chan)
+                format!(
+                    "{} non è collegato a niente. LINK <#canale> <rete> <#loro> avvia un link.",
+                    k.chan
+                )
             } else {
-                format!("{} is not linked to anything. LINK <#chan> <network> <#theirs> starts a link.", k.chan)
+                format!(
+                    "{} is not linked to anything. LINK <#chan> <network> <#theirs> starts a link.",
+                    k.chan
+                )
             });
             return v;
         };
@@ -1233,7 +1747,13 @@ impl Engine {
             Mode::Live => "LIVE",
         };
         let paused = if it { " (in pausa)" } else { " (paused)" };
-        v.push(format!("{} {} {}{}.", k.chan, if it { "è" } else { "is" }, word(m.policy.mode), if m.paused { paused } else { "" }));
+        v.push(format!(
+            "{} {} {}{}.",
+            k.chan,
+            if it { "è" } else { "is" },
+            word(m.policy.mode),
+            if m.paused { paused } else { "" }
+        ));
         for (c, mm) in &room.members {
             if c == k {
                 continue;
@@ -1245,7 +1765,15 @@ impl Engine {
             } else {
                 ", service not present"
             };
-            let pz = if mm.paused { if it { ", in pausa" } else { ", paused" } } else { "" };
+            let pz = if mm.paused {
+                if it {
+                    ", in pausa"
+                } else {
+                    ", paused"
+                }
+            } else {
+                ""
+            };
             v.push(format!(
                 "  {} {} ({}{}{})",
                 if it { "collegato con" } else { "linked with" },
@@ -1258,16 +1786,38 @@ impl Engine {
         for q in &room.requests {
             let mut w: Vec<String> = Vec::new();
             if !q.newcomer_ok {
-                w.push(if it { format!("{} stesso", q.newcomer) } else { format!("{} itself", q.newcomer) });
+                w.push(if it {
+                    format!("{} stesso", q.newcomer)
+                } else {
+                    format!("{} itself", q.newcomer)
+                });
             }
-            w.extend(room.members.keys().filter(|x| !q.approvals.contains(*x)).map(|x| x.to_string()));
+            w.extend(
+                room.members
+                    .keys()
+                    .filter(|x| !q.approvals.contains(*x))
+                    .map(|x| x.to_string()),
+            );
             v.push(if it {
-                format!("  in attesa: {} vuole entrare; aspetto {}", q.newcomer, w.join(", "))
+                format!(
+                    "  in attesa: {} vuole entrare; aspetto {}",
+                    q.newcomer,
+                    w.join(", ")
+                )
             } else {
-                format!("  pending: {} wants in; waiting for {}", q.newcomer, w.join(", "))
+                format!(
+                    "  pending: {} wants in; waiting for {}",
+                    q.newcomer,
+                    w.join(", ")
+                )
             });
         }
-        v.extend(m.policy.describe(lang).into_iter().map(|l| format!("  {l}")));
+        v.extend(
+            m.policy
+                .describe(lang)
+                .into_iter()
+                .map(|l| format!("  {l}")),
+        );
         let s = self.stats(k);
         v.push(if it {
             format!(
@@ -1283,13 +1833,25 @@ impl Engine {
         v
     }
 
-    fn do_link(&mut self, now: u64, nick: &str, mine: ChanKey, other: ChanKey, out: &mut Vec<Action>) -> Result<(), String> {
+    fn do_link(
+        &mut self,
+        now: u64,
+        nick: &str,
+        mine: ChanKey,
+        other: ChanKey,
+        out: &mut Vec<Action>,
+    ) -> Result<(), String> {
         let l = self.lang_of(&mine);
         if mine.net == other.net {
             return Err(Msg::SameNetwork.render(l));
         }
         if !self.chans.contains_key(&other) {
-            return Err(Msg::TheirServiceMissing { chan: &other.chan, net: &other.net.0, svc: &self.cfg.service_nick }.render(l));
+            return Err(Msg::TheirServiceMissing {
+                chan: &other.chan,
+                net: &other.net.0,
+                svc: &self.cfg.service_nick,
+            }
+            .render(l));
         }
         let (rm, ro) = (self.room_of(&mine), self.room_of(&other));
         let (rid, newcomer, newcomer_ok, requester_is_member) = match (rm, ro) {
@@ -1302,7 +1864,13 @@ impl Engine {
                 self.next_room += 1;
                 self.rooms.insert(r, Room::default());
                 let pol = self.new_policy();
-                self.rooms.get_mut(&r).unwrap().members.insert(mine.clone(), Member { policy: pol, paused: false });
+                self.rooms.get_mut(&r).unwrap().members.insert(
+                    mine.clone(),
+                    Member {
+                        policy: pol,
+                        paused: false,
+                    },
+                );
                 self.note(out, now, Some(mine.clone()), nick, "created a new link");
                 (r, other.clone(), false, true)
             }
@@ -1310,7 +1878,10 @@ impl Engine {
         {
             let room = self.rooms.get_mut(&rid).unwrap();
             if room.members.keys().any(|m| m.net == newcomer.net) {
-                return Err(Msg::OnePerNet { net: &newcomer.net.0 }.render(l));
+                return Err(Msg::OnePerNet {
+                    net: &newcomer.net.0,
+                }
+                .render(l));
             }
             if let Some(q) = room.requests.iter_mut().find(|q| q.newcomer == newcomer) {
                 if requester_is_member {
@@ -1323,22 +1894,50 @@ impl Engine {
                 if requester_is_member {
                     approvals.insert(mine.clone());
                 }
-                room.requests.push(Request { newcomer: newcomer.clone(), approvals, newcomer_ok, at: now, by: nick.to_string() });
+                room.requests.push(Request {
+                    newcomer: newcomer.clone(),
+                    approvals,
+                    newcomer_ok,
+                    at: now,
+                    by: nick.to_string(),
+                });
             }
         }
-        self.note(out, now, Some(mine.clone()), nick, &format!("asked to link with {other}"));
+        self.note(
+            out,
+            now,
+            Some(mine.clone()),
+            nick,
+            &format!("asked to link with {other}"),
+        );
         out.push(Action::Notice {
             chan: other.clone(),
-            text: Msg::AskNotice { mine_chan: &mine.chan, mine_net: &mine.net.0, other_chan: &other.chan, svc: &self.cfg.service_nick }
-                .render(self.lang_of(&other)),
+            text: Msg::AskNotice {
+                mine_chan: &mine.chan,
+                mine_net: &mine.net.0,
+                other_chan: &other.chan,
+                svc: &self.cfg.service_nick,
+            }
+            .render(self.lang_of(&other)),
         });
         self.try_admit(now, rid, out);
         let reply = Msg::RequestSent { other: &other.chan }.render(l);
-        out.push(Action::Reply { net: mine.net.clone(), nick: nick.to_string(), text: reply });
+        out.push(Action::Reply {
+            net: mine.net.clone(),
+            nick: nick.to_string(),
+            text: reply,
+        });
         Ok(())
     }
 
-    fn do_accept(&mut self, now: u64, nick: &str, mine: ChanKey, other: ChanKey, out: &mut Vec<Action>) -> Result<(), String> {
+    fn do_accept(
+        &mut self,
+        now: u64,
+        nick: &str,
+        mine: ChanKey,
+        other: ChanKey,
+        out: &mut Vec<Action>,
+    ) -> Result<(), String> {
         let mut done = None;
         for (rid, room) in self.rooms.iter_mut() {
             // I am the newcomer, `other` belongs to the room that asked me.
@@ -1359,15 +1958,37 @@ impl Engine {
             }
         }
         let Some(rid) = done else {
-            return Err(Msg::NoPending { mine: &mine.chan, net: &other.net.0, chan: &other.chan }.render(self.lang_of(&mine)));
+            return Err(Msg::NoPending {
+                mine: &mine.chan,
+                net: &other.net.0,
+                chan: &other.chan,
+            }
+            .render(self.lang_of(&mine)));
         };
-        self.note(out, now, Some(mine.clone()), nick, &format!("accepted the link with {other}"));
+        self.note(
+            out,
+            now,
+            Some(mine.clone()),
+            nick,
+            &format!("accepted the link with {other}"),
+        );
         self.try_admit(now, rid, out);
-        out.push(Action::Reply { net: mine.net.clone(), nick: nick.to_string(), text: Msg::Accepted.render(self.lang_of(&mine)) });
+        out.push(Action::Reply {
+            net: mine.net.clone(),
+            nick: nick.to_string(),
+            text: Msg::Accepted.render(self.lang_of(&mine)),
+        });
         Ok(())
     }
 
-    fn do_deny(&mut self, now: u64, nick: &str, mine: ChanKey, other: ChanKey, out: &mut Vec<Action>) -> Result<(), String> {
+    fn do_deny(
+        &mut self,
+        now: u64,
+        nick: &str,
+        mine: ChanKey,
+        other: ChanKey,
+        out: &mut Vec<Action>,
+    ) -> Result<(), String> {
         let mut removed = false;
         for room in self.rooms.values_mut() {
             let before = room.requests.len();
@@ -1381,14 +2002,25 @@ impl Engine {
         if !removed {
             return Err(Msg::NoSuchRequest.render(self.lang_of(&mine)));
         }
-        self.note(out, now, Some(mine.clone()), nick, &format!("denied/withdrew the link with {other}"));
+        self.note(
+            out,
+            now,
+            Some(mine.clone()),
+            nick,
+            &format!("denied/withdrew the link with {other}"),
+        );
         self.drop_lonely_rooms();
-        out.push(Action::Reply { net: mine.net.clone(), nick: nick.to_string(), text: Msg::RequestRemoved.render(self.lang_of(&mine)) });
+        out.push(Action::Reply {
+            net: mine.net.clone(),
+            nick: nick.to_string(),
+            text: Msg::RequestRemoved.render(self.lang_of(&mine)),
+        });
         Ok(())
     }
 
     fn drop_lonely_rooms(&mut self) {
-        self.rooms.retain(|_, r| r.members.len() >= 2 || !r.requests.is_empty());
+        self.rooms
+            .retain(|_, r| r.members.len() >= 2 || !r.requests.is_empty());
     }
 
     fn try_admit(&mut self, now: u64, rid: u64, out: &mut Vec<Action>) {
@@ -1397,17 +2029,27 @@ impl Engine {
         let mut admitted: Vec<(Request, Vec<ChanKey>)> = Vec::new();
         let pol = self.new_policy();
         {
-            let Some(room) = self.rooms.get_mut(&rid) else { return };
+            let Some(room) = self.rooms.get_mut(&rid) else {
+                return;
+            };
             let ready: Vec<usize> = room
                 .requests
                 .iter()
                 .enumerate()
-                .filter(|(_, q)| q.newcomer_ok && room.members.keys().all(|m| q.approvals.contains(m)))
+                .filter(|(_, q)| {
+                    q.newcomer_ok && room.members.keys().all(|m| q.approvals.contains(m))
+                })
                 .map(|(i, _)| i)
                 .collect();
             for i in ready.into_iter().rev() {
                 let q = room.requests.remove(i);
-                room.members.insert(q.newcomer.clone(), Member { policy: pol.clone(), paused: false });
+                room.members.insert(
+                    q.newcomer.clone(),
+                    Member {
+                        policy: pol.clone(),
+                        paused: false,
+                    },
+                );
                 admitted.push((q, room.members.keys().cloned().collect()));
             }
         }
@@ -1423,20 +2065,45 @@ impl Engine {
                 if self.chans.contains_key(m) {
                     let lm = self.lang_of(m);
                     let txt = if m == &q.newcomer {
-                        Msg::Admitted { svc: &self.cfg.service_nick, chan: &m.chan }.render(lm)
+                        Msg::Admitted {
+                            svc: &self.cfg.service_nick,
+                            chan: &m.chan,
+                        }
+                        .render(lm)
                     } else {
-                        Msg::AdmittedOther { chan: &q.newcomer.chan, label: &label }.render(lm)
+                        Msg::AdmittedOther {
+                            chan: &q.newcomer.chan,
+                            label: &label,
+                        }
+                        .render(lm)
                     };
-                    out.push(Action::Notice { chan: m.clone(), text: txt });
+                    out.push(Action::Notice {
+                        chan: m.clone(),
+                        text: txt,
+                    });
                 }
             }
-            self.note(out, now, Some(q.newcomer.clone()), "system", "link established (preview)");
+            self.note(
+                out,
+                now,
+                Some(q.newcomer.clone()),
+                "system",
+                "link established (preview)",
+            );
         }
     }
 
-    fn do_unlink(&mut self, now: u64, nick: &str, k: ChanKey, out: &mut Vec<Action>) -> Result<(), String> {
+    fn do_unlink(
+        &mut self,
+        now: u64,
+        nick: &str,
+        k: ChanKey,
+        out: &mut Vec<Action>,
+    ) -> Result<(), String> {
         let l = self.lang_of(&k);
-        let Some(rid) = self.room_of(&k) else { return Err(Msg::NotLinked { chan: &k.chan }.render(l)) };
+        let Some(rid) = self.room_of(&k) else {
+            return Err(Msg::NotLinked { chan: &k.chan }.render(l));
+        };
         let others: Vec<ChanKey> = {
             let room = self.rooms.get_mut(&rid).unwrap();
             room.members.remove(&k);
@@ -1449,13 +2116,24 @@ impl Engine {
         for o in others {
             if self.chans.contains_key(&o) {
                 let lo = self.lang_of(&o);
-                out.push(Action::Notice { chan: o, text: Msg::LeftNotice { chan: &k.chan, net: &k.net.0 }.render(lo) });
+                out.push(Action::Notice {
+                    chan: o,
+                    text: Msg::LeftNotice {
+                        chan: &k.chan,
+                        net: &k.net.0,
+                    }
+                    .render(lo),
+                });
             }
         }
         self.drop_lonely_rooms();
         self.note(out, now, Some(k.clone()), nick, "left the link");
         self.reconcile_all(now, out);
-        out.push(Action::Reply { net: k.net.clone(), nick: nick.to_string(), text: Msg::Unlinked { chan: &k.chan }.render(l) });
+        out.push(Action::Reply {
+            net: k.net.clone(),
+            nick: nick.to_string(),
+            text: Msg::Unlinked { chan: &k.chan }.render(l),
+        });
         Ok(())
     }
 }

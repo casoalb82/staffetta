@@ -15,20 +15,15 @@ use crate::model::{fold, NetId, SeenUser};
 use serde::{Deserialize, Serialize};
 
 /// How the origin-network tag is attached to the nick.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub enum NickStyle {
     /// `nick|tag` (default)
+    #[default]
     Pipe,
     /// `nick[tag]`
     Bracket,
     /// `nick_tag`
     Underscore,
-}
-
-impl Default for NickStyle {
-    fn default() -> Self {
-        NickStyle::Pipe
-    }
 }
 
 impl NickStyle {
@@ -139,7 +134,10 @@ pub fn make_face(
     Face {
         nick,
         ident: ident_for(origin, user),
-        realname: format!("{} on {} via Ita Link (relayed user)", user.nick, origin_label),
+        realname: format!(
+            "{} on {} via Ita Link (relayed user)",
+            user.nick, origin_label
+        ),
     }
 }
 
@@ -174,7 +172,14 @@ mod tests {
     #[test]
     fn nick_carries_tag_and_respects_length() {
         let net = NetId::new("azzurra");
-        let f = make_face(&net, "Azzurra", &u("averyveryverylongnickname"), &NickStyle::Pipe, 16, &|_| false);
+        let f = make_face(
+            &net,
+            "Azzurra",
+            &u("averyveryverylongnickname"),
+            &NickStyle::Pipe,
+            16,
+            &|_| false,
+        );
         assert!(f.nick.chars().count() <= 16, "{}", f.nick);
         assert!(f.nick.ends_with("|azz"), "{}", f.nick);
         assert!(f.realname.contains("relayed"));
@@ -183,9 +188,13 @@ mod tests {
     #[test]
     fn collisions_never_lose_the_tag() {
         let net = NetId::new("azzurra");
-        let first = make_face(&net, "Azzurra", &u("mario"), &NickStyle::Pipe, 30, &|_| false);
+        let first = make_face(&net, "Azzurra", &u("mario"), &NickStyle::Pipe, 30, &|_| {
+            false
+        });
         let taken = first.nick.clone();
-        let second = make_face(&net, "Azzurra", &u("mario"), &NickStyle::Pipe, 30, &|n| n == taken);
+        let second = make_face(&net, "Azzurra", &u("mario"), &NickStyle::Pipe, 30, &|n| {
+            n == taken
+        });
         assert_ne!(first.nick, second.nick);
         assert!(second.nick.ends_with("|azz"));
     }
@@ -193,7 +202,9 @@ mod tests {
     #[test]
     fn weird_nicks_are_cleaned() {
         let net = NetId::new("x");
-        let f = make_face(&net, "X", &u("9lives!"), &NickStyle::Bracket, 30, &|_| false);
+        let f = make_face(&net, "X", &u("9lives!"), &NickStyle::Bracket, 30, &|_| {
+            false
+        });
         assert!(f.nick.starts_with('_'), "{}", f.nick);
         assert!(f.nick.ends_with("[x]"));
         let g = make_face(&net, "X", &u("!!!"), &NickStyle::Pipe, 30, &|_| false);

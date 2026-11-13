@@ -40,8 +40,14 @@ pub fn pool_addr(prefix: Ipv6Addr, len: u8, seed: u64) -> Ipv6Addr {
 /// Parse `"2001:db8:1:2::/64"`.
 pub fn parse_prefix(s: &str) -> Result<(Ipv6Addr, u8), String> {
     let (a, l) = s.split_once('/').ok_or("expected <ipv6>/<length>")?;
-    let addr: Ipv6Addr = a.trim().parse().map_err(|_| "not an IPv6 address".to_string())?;
-    let len: u8 = l.trim().parse().map_err(|_| "bad prefix length".to_string())?;
+    let addr: Ipv6Addr = a
+        .trim()
+        .parse()
+        .map_err(|_| "not an IPv6 address".to_string())?;
+    let len: u8 = l
+        .trim()
+        .parse()
+        .map_err(|_| "bad prefix length".to_string())?;
     if !(48..=128).contains(&len) {
         return Err("prefix length must be between 48 and 128".into());
     }

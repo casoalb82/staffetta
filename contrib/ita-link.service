@@ -1,0 +1,42 @@
+# systemd unit for Ita Link. Install as /etc/systemd/system/ita-link.service
+#
+#   sudo useradd --system --home /var/lib/ita-link --shell /usr/sbin/nologin italink
+#   sudo install -m 0755 target/release/ita-link /usr/local/bin/ita-link
+#   sudo install -d -o italink -g italink -m 0750 /etc/ita-link
+#   sudo install -m 0640 -o root -g italink config.toml /etc/ita-link/config.toml
+#
+# In config.toml use:  state_dir = "/var/lib/ita-link"
+[Unit]
+Description=Ita Link - link IRC channels across networks
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=italink
+Group=italink
+ExecStart=/usr/local/bin/ita-link /etc/ita-link/config.toml
+Restart=on-failure
+RestartSec=10
+StateDirectory=ita-link
+StateDirectoryMode=0750
+
+# Hardening: it only needs the network and its own state directory.
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_INET AF_INET6
+RestrictNamespaces=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+SystemCallArchitectures=native
+CapabilityBoundingSet=
+AmbientCapabilities=
+
+[Install]
+WantedBy=multi-user.target

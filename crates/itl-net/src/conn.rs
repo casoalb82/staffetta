@@ -8,7 +8,9 @@ use anyhow::{bail, Context, Result};
 use std::net::IpAddr;
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::io::{AsyncBufReadExt, AsyncRead, AsyncWrite, AsyncWriteExt, BufReader, ReadHalf, WriteHalf};
+use tokio::io::{
+    AsyncBufReadExt, AsyncRead, AsyncWrite, AsyncWriteExt, BufReader, ReadHalf, WriteHalf,
+};
 use tokio::net::{lookup_host, TcpSocket};
 use tokio_rustls::rustls::pki_types::ServerName;
 use tokio_rustls::rustls::{ClientConfig, RootCertStore};
@@ -46,7 +48,9 @@ fn tls_connector() -> Result<TlsConnector> {
     if roots.is_empty() {
         bail!("no trusted root certificates found in the system store");
     }
-    let cfg = ClientConfig::builder().with_root_certificates(roots).with_no_client_auth();
+    let cfg = ClientConfig::builder()
+        .with_root_certificates(roots)
+        .with_no_client_auth();
     Ok(TlsConnector::from(Arc::new(cfg)))
 }
 
@@ -57,7 +61,10 @@ fn is_loopback_host(host: &str) -> bool {
 /// Check a target before connecting. Used at config load time too.
 pub fn validate(t: &Target) -> Result<()> {
     if !t.tls && !is_loopback_host(&t.host) {
-        bail!("{}: plain-text IRC is only allowed to localhost; use tls = true", t.host);
+        bail!(
+            "{}: plain-text IRC is only allowed to localhost; use tls = true",
+            t.host
+        );
     }
     Ok(())
 }
@@ -67,22 +74,33 @@ pub async fn connect(t: &Target) -> Result<(LineReader, LineWriter)> {
     let timeout = Duration::from_secs(20);
     let stream: Stream = tokio::time::timeout(timeout, async {
         let mut last: Option<anyhow::Error> = None;
-        for addr in lookup_host((t.host.as_str(), t.port)).await.context("resolve")? {
+        for addr in lookup_host((t.host.as_str(), t.port))
+            .await
+            .context("resolve")?
+        {
             if let Some(src) = t.source_ip {
                 if src.is_ipv6() != addr.is_ipv6() {
                     continue;
                 }
             }
-            let sock = if addr.is_ipv6() { TcpSocket::new_v6()? } else { TcpSocket::new_v4()? };
+            let sock = if addr.is_ipv6() {
+                TcpSocket::new_v6()?
+            } else {
+                TcpSocket::new_v4()?
+            };
             if let Some(src) = t.source_ip {
-                sock.bind(std::net::SocketAddr::new(src, 0)).context("bind source address")?;
+                sock.bind(std::net::SocketAddr::new(src, 0))
+                    .context("bind source address")?;
             }
             match sock.connect(addr).await {
                 Ok(tcp) => {
                     let _ = tcp.set_nodelay(true);
                     if t.tls {
                         let name = ServerName::try_from(t.host.clone()).context("server name")?;
-                        let s = tls_connector()?.connect(name, tcp).await.context("TLS handshake")?;
+                        let s = tls_connector()?
+                            .connect(name, tcp)
+                            .await
+                            .context("TLS handshake")?;
                         return Ok::<Stream, anyhow::Error>(Box::new(s));
                     }
                     return Ok(Box::new(tcp));
@@ -95,7 +113,13 @@ pub async fn connect(t: &Target) -> Result<(LineReader, LineWriter)> {
     .await
     .context("connect timed out")??;
     let (r, w) = tokio::io::split(stream);
-    Ok((LineReader { inner: BufReader::new(r), buf: Vec::new() }, LineWriter { inner: w }))
+    Ok((
+        LineReader {
+            inner: BufReader::new(r),
+            buf: Vec::new(),
+        },
+        LineWriter { inner: w },
+    ))
 }
 
 impl LineReader {
@@ -121,7 +145,10 @@ impl LineWriter {
     /// Send one line. CR/LF inside the text are removed so a relayed message
     /// can never smuggle in a second IRC command.
     pub async fn send(&mut self, line: &str) -> Result<()> {
-        let clean: String = line.chars().filter(|c| *c != '\r' && *c != '\n' && *c != '\0').collect();
+        let clean: String = line
+            .chars()
+            .filter(|c| *c != '\r' && *c != '\n' && *c != '\0')
+            .collect();
         self.inner.write_all(clean.as_bytes()).await?;
         self.inner.write_all(b"\r\n").await?;
         self.inner.flush().await?;
@@ -135,7 +162,12 @@ mod tests {
 
     #[test]
     fn plain_text_only_to_loopback() {
-        let t = |h: &str, tls| Target { host: h.into(), port: 6667, tls, source_ip: None };
+        let t = |h: &str, tls| Target {
+            host: h.into(),
+            port: 6667,
+            tls,
+            source_ip: None,
+        };
         assert!(validate(&t("127.0.0.1", false)).is_ok());
         assert!(validate(&t("localhost", false)).is_ok());
         assert!(validate(&t("::1", false)).is_ok());

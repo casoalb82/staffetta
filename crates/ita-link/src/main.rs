@@ -11,7 +11,11 @@ async fn main() -> Result<()> {
     match args.as_slice() {
         [cmd, path] if cmd == "check" => {
             let cfg = Config::load(&PathBuf::from(path))?;
-            println!("config ok: {} networks, service nick {}", cfg.networks.len(), cfg.service_nick);
+            println!(
+                "config ok: {} networks, service nick {}",
+                cfg.networks.len(),
+                cfg.service_nick
+            );
             Ok(())
         }
         [path] if path != "-h" && path != "--help" => {

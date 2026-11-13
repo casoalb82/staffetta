@@ -76,14 +76,17 @@ Real networks need `tls = true`, and the certificate is always verified.
 Working and tested (fake network): invitation and two-sided approval, preview/live,
 per-channel policy, flood control, blocks and mutes, kick/ban memory, pause/unlink,
 state and audit log on disk, reconnect after a network drop, restart recovery,
-puppet nick collisions, puppet cap per network.
+puppet nick collisions, puppet cap per network, account-gated entry.
 
 Replies and notices to channel operators are available in Italian and English
 (per channel: `SET #chan lang it|en`, default set in the configuration).
 
-Not done yet: services-account tracking on networks without `extended-join`
-(WHOX), IPv6 source-address pool for puppets, a read-only web status page,
-packaging (systemd unit). Real-network trials need
+Also done: services-account tracking through WHOX and `account-notify` (a person's
+identity is anchored to their account), an IPv6 source-address pool for puppets
+(against per-IP connection limits), an opt-in read-only status page, a hardened
+systemd unit, CI. See [docs/INSTALL.md](docs/INSTALL.md).
+
+Not done yet: a trial on a real network. That needs
 the agreement of the channel owners *and* the network's staff, and that is
 deliberately the last step.
 
